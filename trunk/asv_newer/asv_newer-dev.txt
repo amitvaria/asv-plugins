@@ -1,0 +1,42 @@
+function asv_newer($atts, $thing = false, $match = '')
+{
+	global $thispage, $pretext, $permlink_mode;
+
+	extract(lAtts(array(
+		'showalways' => 0,
+		'link' => 'y',
+	), $atts));
+	
+	$linked = ($link == 'y') ? true : false;
+	$numPages = $thispage['numPages'];
+	$pg				= $thispage['pg'];
+
+	if ($numPages > 1 and $pg > 1)
+	{
+		$nextpg = ($pg - 1 == 1) ? 0 : ($pg - 1);
+
+		$url = pagelinkurl(array(
+			'pg'		 => $nextpg,
+			's'			 => @$pretext['s'],
+			'c'			 => @$pretext['c'],
+			'q'			 => @$pretext['q'],
+			'author' => @$pretext['author']
+		));
+
+		if ($thing && $linked)
+		{
+			return '<a href="'.$url.'"'.
+				(empty($title) ? '' : ' title="'.$title.'"').
+				'>'.parse($thing).'</a>';
+		}
+		
+		if ($thing && !$linked)
+		{
+			return parse($thing);
+		}
+
+		return $url;
+	}
+
+	return ($showalways) ? parse($thing) : '';
+}
