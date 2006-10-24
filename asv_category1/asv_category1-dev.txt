@@ -1,0 +1,40 @@
+function asv_category1($atts, $thing = '')
+{
+	global $thisarticle, $s, $permlink_mode;
+
+	assert_article();
+
+	extract(lAtts(array(
+	'class'				 => '',
+	'link'				 => 'n',
+	'title'				 => true,
+	'section'			 => '',
+	'this_section' => false,
+	'wraptag'			 => '',
+	), $atts));
+
+	$linked = ($link == "y")? true: false;
+	if ($thisarticle['category1'])
+	{
+		$section = ($this_section) ? ( $s == 'default' ? '' : $s ) : $section;
+		$category = $thisarticle['category1'];
+
+		$label = ($title) ? fetch_category_title($category) : $category;
+		$label = ($thing) ? $thing : $label;
+		if ($linked)
+		{
+			$out = '<a'.
+			($permlink_mode != 'messy' ? ' rel="tag"' : '').
+			' href="'.pagelinkurl(array('s' => $section, 'c' => $category)).'"'.
+			($title ? ' title="'.$label.'"' : '').
+			'>'.$label.'</a>';
+		}
+
+		else
+		{
+			$out = $label;
+		}
+
+		return doTag($out, $wraptag, $class);
+	}
+}
