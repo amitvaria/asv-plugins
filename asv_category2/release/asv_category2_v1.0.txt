@@ -1,0 +1,12 @@
+# asv_category2 1.0
+# Fixes issues with category2
+# Amit Varia
+# http://www.amitvaria.com
+
+# ......................................................................
+# This is a plugin for Textpattern - http://textpattern.com/
+# To install: textpattern > admin > plugins
+# Paste the following text into the 'Install plugin' box:
+# ......................................................................
+
+YTo5OntzOjQ6Im5hbWUiO3M6MTM6ImFzdl9jYXRlZ29yeTIiO3M6NjoiYXV0aG9yIjtzOjEwOiJBbWl0IFZhcmlhIjtzOjEwOiJhdXRob3JfdXJpIjtzOjI0OiJodHRwOi8vd3d3LmFtaXR2YXJpYS5jb20iO3M6NzoidmVyc2lvbiI7czozOiIxLjAiO3M6MTE6ImRlc2NyaXB0aW9uIjtzOjI3OiJGaXhlcyBpc3N1ZXMgd2l0aCBjYXRlZ29yeTIiO3M6NDoiaGVscCI7czowOiIiO3M6NDoiY29kZSI7czo5MTU6ImZ1bmN0aW9uIGFzdl9jYXRlZ29yeTIoJGF0dHMsICR0aGluZyA9ICcnKQ0Kew0KCWdsb2JhbCAkdGhpc2FydGljbGUsICRzLCAkcGVybWxpbmtfbW9kZTsNCg0KCWFzc2VydF9hcnRpY2xlKCk7DQoNCglleHRyYWN0KGxBdHRzKGFycmF5KA0KCSdjbGFzcycJCQkJID0+ICcnLA0KCSdsaW5rJwkJCQkgPT4gJ24nLA0KCSd0aXRsZScJCQkJID0+IHRydWUsDQoJJ3NlY3Rpb24nCQkJID0+ICcnLA0KCSd0aGlzX3NlY3Rpb24nID0+IGZhbHNlLA0KCSd3cmFwdGFnJwkJCSA9PiAnJywNCgkpLCAkYXR0cykpOw0KDQoJJGxpbmtlZCA9ICgkbGluayA9PSAieSIpPyB0cnVlOiBmYWxzZTsNCglpZiAoJHRoaXNhcnRpY2xlWydjYXRlZ29yeTInXSkNCgl7DQoJCSRzZWN0aW9uID0gKCR0aGlzX3NlY3Rpb24pID8gKCAkcyA9PSAnZGVmYXVsdCcgPyAnJyA6ICRzICkgOiAkc2VjdGlvbjsNCgkJJGNhdGVnb3J5ID0gJHRoaXNhcnRpY2xlWydjYXRlZ29yeTInXTsNCg0KCQkkbGFiZWwgPSAoJHRpdGxlKSA/IGZldGNoX2NhdGVnb3J5X3RpdGxlKCRjYXRlZ29yeSkgOiAkY2F0ZWdvcnk7DQoJCSRsYWJlbCA9ICgkdGhpbmcpID8gJHRoaW5nIDogJGxhYmVsOw0KCQlpZiAoJGxpbmtlZCkNCgkJew0KCQkJJG91dCA9ICc8YScuDQoJCQkoJHBlcm1saW5rX21vZGUgIT0gJ21lc3N5JyA/ICcgcmVsPSJ0YWciJyA6ICcnKS4NCgkJCScgaHJlZj0iJy5wYWdlbGlua3VybChhcnJheSgncycgPT4gJHNlY3Rpb24sICdjJyA9PiAkY2F0ZWdvcnkpKS4nIicuDQoJCQkoJHRpdGxlID8gJyB0aXRsZT0iJy4kbGFiZWwuJyInIDogJycpLg0KCQkJJz4nLiRsYWJlbC4nPC9hPic7DQoJCX0NCg0KCQllbHNlDQoJCXsNCgkJCSRvdXQgPSAkbGFiZWw7DQoJCX0NCg0KCQlyZXR1cm4gZG9UYWcoJG91dCwgJHdyYXB0YWcsICRjbGFzcyk7DQoJfQ0KfSI7czo0OiJ0eXBlIjtzOjE6IjAiO3M6MzoibWQ1IjtzOjMyOiJmMzk1YTNmNzAwZTE1YmU5ZWYwZTQyYTlhODI5ZDQ3ZSI7fQ==

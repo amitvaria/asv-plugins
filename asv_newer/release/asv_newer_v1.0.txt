@@ -1,0 +1,12 @@
+# asv_newer 1.0
+# Expands txp:newer
+# Amit Varia
+# http://www.amitvaria.com
+
+# ......................................................................
+# This is a plugin for Textpattern - http://textpattern.com/
+# To install: textpattern > admin > plugins
+# Paste the following text into the 'Install plugin' box:
+# ......................................................................
+
+YTo5OntzOjQ6Im5hbWUiO3M6OToiYXN2X25ld2VyIjtzOjY6ImF1dGhvciI7czoxMDoiQW1pdCBWYXJpYSI7czoxMDoiYXV0aG9yX3VyaSI7czoyNDoiaHR0cDovL3d3dy5hbWl0dmFyaWEuY29tIjtzOjc6InZlcnNpb24iO3M6MzoiMS4wIjtzOjExOiJkZXNjcmlwdGlvbiI7czoxNzoiRXhwYW5kcyB0eHA6bmV3ZXIiO3M6NDoiaGVscCI7czoyMzQ6IlRoaXMgcGx1Z2luIGFkZHJlc3NlcyBpc3N1ZXMgd2l0aCB0eHA6Y2F0ZWdvcnkyIGFuZCBub3QgcmVzcGVjdGluZyB0aGUgbGluaz0mcXVvdDtuJnF1b3Q7IGF0dHJpYnV0ZSBmb3IgYm90aCBkZWZhdWx0IGFuZCBjdXN0b20gdGV4dC4gVGhlcmUgaXMgbm8gZGlmZmVyZW5jZSBpbiB1c2FnZSB0aGFuIHR4cDpjYXRlZ29yeTIsIHJhdGhlciBqdXN0IGNvcnJlY3RseSBkaXNwbGF5cyB0aGUgbGluay48YnIgLz4NCiI7czo0OiJjb2RlIjtzOjg1NjoiZnVuY3Rpb24gYXN2X25ld2VyKCRhdHRzLCAkdGhpbmcgPSBmYWxzZSwgJG1hdGNoID0gJycpDQp7DQoJZ2xvYmFsICR0aGlzcGFnZSwgJHByZXRleHQsICRwZXJtbGlua19tb2RlOw0KDQoJZXh0cmFjdChsQXR0cyhhcnJheSgNCgkJJ3Nob3dhbHdheXMnID0+IDAsDQoJCSdsaW5rJyA9PiAneScsDQoJKSwgJGF0dHMpKTsNCgkNCgkkbGlua2VkID0gKCRsaW5rID09ICd5JykgPyB0cnVlIDogZmFsc2U7DQoJJG51bVBhZ2VzID0gJHRoaXNwYWdlWydudW1QYWdlcyddOw0KCSRwZwkJCQk9ICR0aGlzcGFnZVsncGcnXTsNCg0KCWlmICgkbnVtUGFnZXMgPiAxIGFuZCAkcGcgPiAxKQ0KCXsNCgkJJG5leHRwZyA9ICgkcGcgLSAxID09IDEpID8gMCA6ICgkcGcgLSAxKTsNCg0KCQkkdXJsID0gcGFnZWxpbmt1cmwoYXJyYXkoDQoJCQkncGcnCQkgPT4gJG5leHRwZywNCgkJCSdzJwkJCSA9PiBAJHByZXRleHRbJ3MnXSwNCgkJCSdjJwkJCSA9PiBAJHByZXRleHRbJ2MnXSwNCgkJCSdxJwkJCSA9PiBAJHByZXRleHRbJ3EnXSwNCgkJCSdhdXRob3InID0+IEAkcHJldGV4dFsnYXV0aG9yJ10NCgkJKSk7DQoNCgkJaWYgKCR0aGluZyAmJiAkbGlua2VkKQ0KCQl7DQoJCQlyZXR1cm4gJzxhIGhyZWY9IicuJHVybC4nIicuDQoJCQkJKGVtcHR5KCR0aXRsZSkgPyAnJyA6ICcgdGl0bGU9IicuJHRpdGxlLiciJykuDQoJCQkJJz4nLnBhcnNlKCR0aGluZykuJzwvYT4nOw0KCQl9DQoJCQ0KCQlpZiAoJHRoaW5nICYmICEkbGlua2VkKQ0KCQl7DQoJCQlyZXR1cm4gcGFyc2UoJHRoaW5nKTsNCgkJfQ0KDQoJCXJldHVybiAkdXJsOw0KCX0NCg0KCXJldHVybiAoJHNob3dhbHdheXMpID8gcGFyc2UoJHRoaW5nKSA6ICcnOw0KfSI7czo0OiJ0eXBlIjtzOjE6IjAiO3M6MzoibWQ1IjtzOjMyOiJhNzU2ZDk5MzkwYTY1ZDM1MDBiN2ZlYzU5MjgwNjg4MiI7fQ==
