@@ -28,7 +28,8 @@ if (0) {
 ?>
 # --- BEGIN PLUGIN HELP ---
 
-h1. Textile-formatted help goes here
+<h1>asv_tracker</h1>
+<p>I created this plugin to allow administrators to track changes to their database. You can view changes under 'Extensions > txp tracker', but for right now it will only changes to articles, files, and images. The current vision is to complete adding all the possible ways to change the database, allow user granularity on which changes to track, and eventually email notification on changes.</p>
 
 # --- END PLUGIN HELP ---
 <?php
@@ -42,7 +43,6 @@ function asv_tracker(){
     safe_query("CREATE TABLE IF NOT EXISTS ".safe_pfx_j('asv_tracker')."(  id int(4) NOT NULL auto_increment,  user varchar(64) collate latin1_general_ci NOT NULL default '',  access datetime NOT NULL default '0000-00-00 00:00:00',  action varchar(255) collate latin1_general_ci NOT NULL default '',  PRIMARY KEY  (id));");
     
     $func = 'asv_tracker_'.gps('event');
-    print $func;
     if(is_callable($func)){
         $func(gps('step'));
     }
