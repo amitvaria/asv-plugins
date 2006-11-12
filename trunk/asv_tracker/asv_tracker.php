@@ -143,16 +143,16 @@ function asv_tracker_image($step=''){
 }
 
 function asv_tracker_file($step=''){
-	$id = assert_int(ps('id'));
+	global $txp_user;
 	
 	switch($step){
-		case 'file_delete':				safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to delete file #'.$id.'"');
+		case 'file_delete':				safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to delete file #'.assert_int(ps('id')).'"');
 															break;
-		case 'file_save':					safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to save file #'.$id.'"');
+		case 'file_save':					safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to save file #'.assert_int(ps('id')).'"');
 															break;
-		case 'file_reset_count':	safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to reset the count on file #'.$id.'"');
+		case 'file_reset_count':	safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to reset the count on file #'.assert_int(ps('id')).'"');
 															break;
-		case 'file_replace':			safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to replace file #'.$id.'"');
+		case 'file_replace':			safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to replace file #'.assert_int(ps('id')).'"');
 															break;
 		case 'file_insert':				$name = file_get_uploaded_name();
 															safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to insert file - '.$name.'"');
