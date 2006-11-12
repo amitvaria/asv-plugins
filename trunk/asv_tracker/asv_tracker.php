@@ -148,7 +148,7 @@ function asv_tracker_file($step=''){
 	switch($step){
 		case 'file_delete':				safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to delete file #'.assert_int(ps('id')).'"');
 															break;
-		case 'file_save':					safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to save file #'.assert_int(ps('id')).'"');
+		case 'file_save':					safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to update and save file #'.assert_int(ps('id')).'"');
 															break;
 		case 'file_reset_count':	safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to reset the count on file #'.assert_int(ps('id')).'"');
 															break;
