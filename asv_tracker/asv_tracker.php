@@ -36,7 +36,7 @@ h1. Textile-formatted help goes here
 
 # --- BEGIN PLUGIN CODE ---
 
-function asv_tracker($event, $step){
+function asv_tracker(){
     global $txp_user;
     
     safe_query("CREATE TABLE IF NOT EXISTS ".safe_pfx_j('asv_tracker')."(  id int(4) NOT NULL auto_increment,  user varchar(64) collate latin1_general_ci NOT NULL default '',  access datetime NOT NULL default '0000-00-00 00:00:00',  action varchar(255) collate latin1_general_ci NOT NULL default '',  PRIMARY KEY  (id));");
@@ -53,7 +53,7 @@ function asv_tracker($event, $step){
     }
 }
 
-function asv_tracker_interface(){  
+function asv_tracker_interface($event, $step){  
 	safe_query("CREATE TABLE IF NOT EXISTS ".safe_pfx_j('asv_tracker')."(  id int(4) NOT NULL auto_increment,  user varchar(64) collate latin1_general_ci NOT NULL default '',  access datetime NOT NULL default '0000-00-00 00:00:00',  action varchar(255) collate latin1_general_ci NOT NULL default '',  PRIMARY KEY  (id));");
     
 	pagetop('TXP Tracker');
@@ -194,31 +194,30 @@ function asv_tracker_import($step=''){
 }
 
 if(@txpinterface == 'admin') {
-    add_privs('asv_tracker','1,2');
-    register_tab('extensions', 'asv_tracker_interface', "txp tracker"); 
-    register_callback('asv_tracker_interface', 'asv_tracker_interface');
-    $track = array(
-                'admin',
-                'article', 
-                'category', 
-                'css', 
-                'diag', 
-                'file', 
-                'form', 
-                'image', 
-                'import', 
-                'link', 
-                'list', 
-                'log', 
-                'page', 
-                'plugin', 
-                'prefs', 
-                'section'
-            );
-    foreach ($track as $event){
-        register_callback('asv_tracker', $event);
-    }
-
+	register_tab('extensions', 'asv_tracker_interface', "txp tracker"); 
+	register_callback('asv_tracker_interface', 'asv_tracker_interface');
+	add_privs('asv_tracker_interface','1,2');
+	$asv_track = array(
+							'admin',
+							'article', 
+							'category', 
+							'css', 
+							'diag', 
+							'file', 
+							'form', 
+							'image', 
+							'import', 
+							'link', 
+							'list', 
+							'log', 
+							'page', 
+							'plugin', 
+							'prefs', 
+							'section'
+					);
+	foreach ($asv_track as $asv_event){
+			register_callback('asv_tracker', $asv_event);
+	}
 }
 
 # --- END PLUGIN CODE ---
