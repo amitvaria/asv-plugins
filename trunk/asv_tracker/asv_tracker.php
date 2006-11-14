@@ -38,37 +38,69 @@ if (0) {
 # --- BEGIN PLUGIN CODE ---
 
 function asv_tracker(){
-    global $txp_user;
+	global $txp_user;
+	
+	asv_create_table();
+	$event = gps('event');
+	$action = '';
     
-    safe_query("CREATE TABLE IF NOT EXISTS ".safe_pfx_j('asv_tracker')."(  id int(4) NOT NULL auto_increment,  user varchar(64) collate latin1_general_ci NOT NULL default '',  access datetime NOT NULL default '0000-00-00 00:00:00',  action varchar(255) collate latin1_general_ci NOT NULL default '',  PRIMARY KEY  (id));");
-    
-    $func = 'asv_tracker_'.gps('event');
-    if(is_callable($func)){
-        $func(gps('step'));
-    }
-    else{
-        $action = '';
-        $action = 'event - '.gps('event').'/ step - '.gps('step');
-        safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="'.$action.'"');
-    }
+	$func = 'asv_tracker_'.$event;
+	
+	if(is_callable($func)){
+		$asv_data = $func(gps('step'));
+	}
+	else{
+		$action = gps('step');
+		$id = -1;
+	}
+	
+	if(!empty($asv_data) && $event != 'list'){
+		extract($asv_data);
+		safe_insert(safe_pfx_j('asv_tracker'), 'user="'.doSlash($txp_user).'", event="'.doSlash($event).'", action="'.doSlash($action).'", action_id="'.assert_int($id).'"');
+	}
+	
+	if(!empty($asv_data) && $event == 'list'){
+		$event='article'; //I do this because the event list performing actions on multiple articles
+		foreach ($asv_data as $asv_item){
+			extract($asv_item);
+			safe_insert(safe_pfx_j('asv_tracker'), 'user="'.doSlash($txp_user).'", event="'.doSlash($event).'", action="'.doSlash($action).'", action_id="'.assert_int($id).'"');
+		}
+	}
 }
 
-function asv_tracker_interface($event, $step){  
-	safe_query("CREATE TABLE IF NOT EXISTS ".safe_pfx_j('asv_tracker')."(  id int(4) NOT NULL auto_increment,  user varchar(64) collate latin1_general_ci NOT NULL default '',  access datetime NOT NULL default '0000-00-00 00:00:00',  action varchar(255) collate latin1_general_ci NOT NULL default '',  PRIMARY KEY  (id));");
-    
+function asv_create_table(){
+	safe_query("CREATE TABLE IF NOT EXISTS ".safe_pfx_j('asv_tracker')."(  id int(4) NOT NULL auto_increment,  user varchar(64) collate utf8_general_ci NOT NULL default '',  access timestamp NOT NULL default CURRENT_TIMESTAMP, event varchar(25) collate utf8_general_ci NOT NULL default '', action varchar(255) collate utf8_general_ci NOT NULL default '', action_id int(4), PRIMARY KEY  (id));");
+}
+
+function asv_tracker_interface($event, $step){ 	
+	if($event == 'list'){$event = 'article';}//I do this because the event list performing actions on multiple articles
+	
+	asv_create_table();
 	pagetop('TXP Tracker');
 	
-	$rs = safe_rows_start("*",safe_pfx_j('asv_tracker'), "1=1 order by id");
+	$filter = gps('filter');
+	$filter_value = gps('filter_value');
+	$sort = gps('sort');
+	$order = gps('order');
+	$where = (!empty($filter)) ? doSlash($filter).'="'.doSlash($filter_value).'"' : '1=1';
+	$sort_order = (!empty($sort)) ? 'order by '.doSlash($sort).' '.doSlash($order) : 'order by id DESC';
 	
-	echo
-	startTable('list').assHead('user','access','action');
+	$rs = safe_rows_start("*",safe_pfx_j('asv_tracker'), $where." ".$sort_order);
+	
+	echo startTable('list').assHead('<a href="index.php?event=asv_tracker_interface&sort=user&order='.(($order == 'ASC') ? 'DESC' : 'ASC').'">user</a>',
+																	'<a href="index.php?event=asv_tracker_interface&sort=access&order='.(($order == 'ASC') ? 'DESC' : 'ASC').'">access</a>',
+																	'<a href="index.php?event=asv_tracker_interface&sort=event&order='.(($order == 'ASC') ? 'DESC' : 'ASC').'">event</a>',
+																	'action',
+																	'<a href="index.php?event=asv_tracker_interface&sort=action_id&order='.(($order == 'ASC') ? 'DESC' : 'ASC').'">item</a>');
 	while ($a = nextRow($rs)) {
 		extract($a);
 		echo
 			tr(
-					td($user).
-					td($access).
-					td($action)
+				td('<a href="index.php?event=asv_tracker_interface&filter=user&filter_value='.$user.'">'.$user.'</a>').
+				td($access).
+				td('<a href="index.php?event=asv_tracker_interface&filter=event&filter_value='.$event.'">'.$event.'</a>').
+				td($action).
+				td('<a href="index.php?event=asv_tracker_interface&filter=action_id&filter_value='.$action_id.'">'.$action_id.'</a>')
 			);
 		unset($user, $access, $action);
 	}
@@ -77,23 +109,27 @@ function asv_tracker_interface($event, $step){
 }
 
 function asv_tracker_article($step=''){
-    global $txp_user, $vars, $txpcfg, $prefs;
+	global $txp_user, $vars, $txpcfg, $prefs;
 
-    extract($prefs);
-    $incoming = psa($vars);
-    
-    $save = gps('save');
-    if ($save) $step = 'save';
-            
-    $publish = gps('publish');
-    if ($publish) $step = 'publish';
-    
-    switch($step){
-        case "publish":    safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to create article #'.$incoming['ID'].'"');
-                        break;
-        case "save":    safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to update article #'.$incoming['ID'].'"');
-                        break;
-    }
+	extract($prefs);
+	$incoming = psa($vars);
+	
+	$save = gps('save');
+	if ($save) $step = 'save';
+					
+	$publish = gps('publish');
+	if ($publish) $step = 'publish';
+	
+	$action='';
+	
+	switch($step){
+			case "publish":	$action = 'Create';
+											break;
+			case "save":    $action = 'Update';
+											break;
+	}
+	
+	return (!empty($action)) ? array("action" => $action, "id" => $incoming['ID']) :  '';
 }
 
 function asv_tracker_list($step=''){
@@ -101,66 +137,79 @@ function asv_tracker_list($step=''){
 	
 	$selected = ps('selected');
 	$method = ps('edit_method');
-	$ids = join(', ', $selected);
 	
-	if($step == "list_multi_edit"){
+	$action='';
+	
+	if($step == "list_multi_edit"){			
 			switch ($method){
-				case 'delete':					safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to delete articles '.$ids.'"');
+				case 'delete':					$action = 'Delete';
 																break;
-				case 'changeauthor':    $value = has_privs('article.edit') ? ps('AuthorID') : '';
-																safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to update authors for '.$ids.' to '.$value.'"');
-																break;
+				case 'changeauthor':    $value = ps('AuthorID');
+																$action = 'Update author to '.$value;
+																break; 
 				case 'changecategory1': $value = ps('Category1');
-																safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to update category1 for '.$ids.' to '.$value.'"');
+																$action = 'Update category1 to '.$value;
 																break;
 				case 'changecategory2':	$value = ps('Category2');
-																safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to update category2 for '.$ids.' to '.$value.'"');
+																$action='Update category2 to '.$value;
 																break;
 				case 'changecomments':	$value = ps('Annotate');
 																($value==0) ? $value="off" : $value="on";
-																safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to update comments for '.$ids.' to '.$value.'"');
+																$action = 'Update comments to '.$value;
 																break;
 				case 'changesection':		$value = ps('Section');
-																safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to update sections for '.$ids.' to '.$value.'"');
+																$action = 'Update sections to '.$value;
 																break;
 				case 'changestatus':		$value = ps('Status');
-																safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to update status for '.$ids.' to '.$value.'"');
+																$action = 'Update status to '.$value;
 																break;
 			}
+			
+			$actions = array();
+			foreach ($selected as $id){
+				$actions[] = array("action" => $action, "id" => $id);
+			}
+			return $actions;
 	}
+	return '';
 }
 
 function asv_tracker_image($step=''){
-	global $txp_user;
 	$id = ps('id');
+	$action='';
 	
 	switch($step){
-		case 'image_save':		safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to create or update image #'.$id.'"');
+		case 'image_save':		$action = 'Create or update image '.$id;
 													break;
-		case 'image_delete':	safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to delete image #'.$id.'"');
+		case 'image_delete':	$action = 'Delete image '.$id;
 													break;
 	}
+	
+	return (!empty($action)) ? array("action" => $action ,"id" => $id) :  '';
 }
 
 function asv_tracker_file($step=''){
-	global $txp_user;
+	$id = ps('id');
+	$action='';
 	
 	switch($step){
-		case 'file_delete':				safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to delete file #'.assert_int(ps('id')).'"');
+		case 'file_delete':				$action = 'Delete file';
 															break;
-		case 'file_save':					safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to update and save file #'.assert_int(ps('id')).'"');
+		case 'file_save':					$action = 'Update file';
 															break;
-		case 'file_reset_count':	safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to reset the count on file #'.assert_int(ps('id')).'"');
+		case 'file_reset_count':	$action = 'Reset the count on file';
 															break;
-		case 'file_replace':			safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to replace file #'.assert_int(ps('id')).'"');
+		case 'file_replace':			$action = 'Replace file';
 															break;
 		case 'file_insert':				$name = file_get_uploaded_name();
-															safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to insert file - '.$name.'"');
+															$action = 'The user attempted to insert file';
 															break;
-		case 'file_create':				extract(doSlash(gpsa(array('filename'))));
-															safe_insert(safe_pfx_j('asv_tracker'), 'user="'.$txp_user.'", access=now(), action="The user attempted to create file - '.$filename.'"');
+		case 'file_create':				$action = 'The user attempted to create file - '.gps('filename');
+															$id = -1;
 															break;
 	}
+	
+	return (!empty($action)) ? array("action" => $action, "id" => $id) : '';
 }
 
 function asv_tracker_link($step=''){
