@@ -54,13 +54,8 @@ function asv_tracker(){
 		$id = -1;
 	}
 	
-	if(!empty($asv_data) && $event != 'list'){
-		extract($asv_data);
-		safe_insert(safe_pfx_j('asv_tracker'), 'user="'.doSlash($txp_user).'", event="'.doSlash($event).'", action="'.doSlash($action).'", action_id="'.assert_int($id).'"');
-	}
-	
-	if(!empty($asv_data) && $event == 'list'){
-		$event='article'; //I do this because the event list performing actions on multiple articles
+	if(!empty($asv_data)){
+		$event = ($event == 'list') ? 'article' : $event; //I do this because the event list performing actions on multiple articles
 		foreach ($asv_data as $asv_item){
 			extract($asv_item);
 			safe_insert(safe_pfx_j('asv_tracker'), 'user="'.doSlash($txp_user).'", event="'.doSlash($event).'", action="'.doSlash($action).'", action_id="'.assert_int($id).'"');
@@ -72,9 +67,7 @@ function asv_create_table(){
 	safe_query("CREATE TABLE IF NOT EXISTS ".safe_pfx_j('asv_tracker')."(  id int(4) NOT NULL auto_increment,  user varchar(64) collate utf8_general_ci NOT NULL default '',  access timestamp NOT NULL default CURRENT_TIMESTAMP, event varchar(25) collate utf8_general_ci NOT NULL default '', action varchar(255) collate utf8_general_ci NOT NULL default '', action_id int(4), PRIMARY KEY  (id));");
 }
 
-function asv_tracker_interface($event, $step){ 	
-	if($event == 'list'){$event = 'article';}//I do this because the event list performing actions on multiple articles
-	
+function asv_tracker_interface($event, $step){ 		
 	asv_create_table();
 	pagetop('TXP Tracker');
 	
@@ -109,65 +102,55 @@ function asv_tracker_interface($event, $step){
 }
 
 function asv_tracker_article($step=''){
-	global $txp_user, $vars, $txpcfg, $prefs;
-
-	extract($prefs);
+	global $vars;
+	$actions = array();
+	
 	$incoming = psa($vars);
-	
-	$save = gps('save');
-	if ($save) $step = 'save';
-					
-	$publish = gps('publish');
-	if ($publish) $step = 'publish';
-	
-	$action='';
+	$step = gps('save') ? 'save' : $step;
+	$step = gps('publish') ? 'publish' : $step;			
 	
 	switch($step){
-			case "publish":	$action = 'Create';
+			case "publish":	$actions[] = asv_actions_array('Created - '.($incoming['Title']), -1);
 											break;
-			case "save":    $action = 'Update';
+			case "save":    $actions[] = asv_actions_array('Updated', $incoming['ID']);
 											break;
 	}
-	
-	return (!empty($action)) ? array("action" => $action, "id" => $incoming['ID']) :  '';
+	return $actions;
 }
 
-function asv_tracker_list($step=''){
-	global $txp_user;
-	
+function asv_tracker_list($step=''){	
 	$selected = ps('selected');
 	$method = ps('edit_method');
 	
-	$action='';
+	$actions = array();
 	
 	if($step == "list_multi_edit"){			
 			switch ($method){
 				case 'delete':					$action = 'Delete';
 																break;
 				case 'changeauthor':    $value = ps('AuthorID');
-																$action = 'Update author to '.$value;
+																$action = 'Updated author to '.$value;
 																break; 
 				case 'changecategory1': $value = ps('Category1');
-																$action = 'Update category1 to '.$value;
+																$action = 'Updated category1 to '.$value;
 																break;
 				case 'changecategory2':	$value = ps('Category2');
-																$action='Update category2 to '.$value;
+																$action='Updated category2 to '.$value;
 																break;
 				case 'changecomments':	$value = ps('Annotate');
 																($value==0) ? $value="off" : $value="on";
-																$action = 'Update comments to '.$value;
+																$action = 'Updated comments to '.$value;
 																break;
 				case 'changesection':		$value = ps('Section');
-																$action = 'Update sections to '.$value;
+																$action = 'Updated sections to '.$value;
 																break;
 				case 'changestatus':		$value = ps('Status');
-																$action = 'Update status to '.$value;
+																$action = 'Updated status to '.$value;
 																break;
 			}
 			
-			$actions = array();
 			foreach ($selected as $id){
-				$actions[] = array("action" => $action, "id" => $id);
+				$actions[] = asv_actions_array($action, $id);
 			}
 			return $actions;
 	}
@@ -176,55 +159,138 @@ function asv_tracker_list($step=''){
 
 function asv_tracker_image($step=''){
 	$id = ps('id');
-	$action='';
+	$actions = array();
 	
 	switch($step){
-		case 'image_save':		$action = 'Create or update image '.$id;
+		case 'image_save':		$actions[] = asv_actions_array('Created/Updated', $id);
 													break;
-		case 'image_delete':	$action = 'Delete image '.$id;
+		case 'image_delete':	$actions[] = asv_actions_array('Deleted', $id);;
 													break;
 	}
 	
-	return (!empty($action)) ? array("action" => $action ,"id" => $id) :  '';
+	return $actions;
 }
 
 function asv_tracker_file($step=''){
 	$id = ps('id');
-	$action='';
+	$actions = array();
 	
 	switch($step){
-		case 'file_delete':				$action = 'Delete file';
+		case 'file_delete':				$actions[] = asv_actions_array('Deleted' ,$id);
 															break;
-		case 'file_save':					$action = 'Update file';
+		case 'file_save':					$actions[] = asv_actions_array('Updated', $id);
 															break;
-		case 'file_reset_count':	$action = 'Reset the count on file';
+		case 'file_reset_count':	$actions[] = asv_actions_array('Reset Count', $id);
 															break;
-		case 'file_replace':			$action = 'Replace file';
+		case 'file_replace':			$actions[] = asv_actions_array('Replaced', $id);
 															break;
 		case 'file_insert':				$name = file_get_uploaded_name();
-															$action = 'The user attempted to insert file';
+															$actions[] = asv_actions_array('Inserted '.$name, $id);
 															break;
-		case 'file_create':				$action = 'The user attempted to create file - '.gps('filename');
-															$id = -1;
+		case 'file_create':				$actions[] = asv_actions_array('Created - '.gps('filename'), -1);
 															break;
 	}
 	
-	return (!empty($action)) ? array("action" => $action, "id" => $id) : '';
+	return $actions;
 }
 
 function asv_tracker_link($step=''){
+	global $vars;
+	
+	$varray = gpsa($vars);
+	extract($varray);
+	$actions = array();
+	
+	switch($step){
+		case 'link_post':				$actions[] = asv_actions_array('Created - '.$linkname, -1);
+														break;
+		case 'link_save':				$actions[] = asv_actions_array('Updated', $id);
+														break;
+		case 'link_multi_edit': $method = ps('edit_method');
+														$selected = ps('selected');
+														if ($selected && $method == 'delete'){
+															foreach ($selected as $id){
+																$id = assert_int($id);
+																$actions[] = asv_actions_array('Deleted', $id);
+															}
+														}
+	}
+	
+	return $actions;
 }
 
 function asv_tracker_section($step=''){
+	$name = ps('name');													
+	$actions = array();
+	
+	switch($step){
+		case 'section_create':	$actions[] = asv_actions_array('Created - '.$name, -1);
+														break;
+		case 'section_save':		$actions[] = asv_actions_array('Updated - '.$name, -1);
+														break;
+		case 'section_delete':	$actions[] = asv_actions_array('Deleted - '.$name, -1);
+														break;
+	}
+	return $actions;
 }
 
 function asv_tracker_page($step=''){
+	$actions = array();
+	
+	switch($step){
+		case 'page_delete':	$name = ps('name');
+												$actions[] = ($name != 'default') ? asv_actions_array('Deleted - '.$name, -1) : '';
+												break;
+		case 'page_save':		extract(doSlash(gpsa(array('name', 'html', 'copy'))));
+												if($copy){
+													$newname = doSlash(trim(preg_replace('/[<>&"\']/', '', gps('newname'))));
+													if ($newname and !safe_field('name', 'txp_page', "name = '$newname'")){
+														$actions[] = asv_actions_array('Copied - '.$name.' to '.$newname, -1);
+													}
+												}
+												else{
+													$actions[] = asv_actions_array('Updated - '.$name, -1);
+												}
+												break;
+	}
+	
+	return $actions;	
 }
 
 function asv_tracker_form($step=''){
+	global $vars;
+	extract(doSlash(gpsa($vars)));
+	$name = doSlash(trim(preg_replace('/[<>&"\']/', '', gps('name'))));
+	$actions = array();
+	
+	switch($step){
+		case 'form_save':				if($savenew and $name && in_array($type, array('article','comment','link','misc','file'))){
+															$exists = safe_field('name', 'txp_form', "name = '$name'");
+															if (!$exists){
+																$actions[] = asv_actions_array('Created - '.$name, -1);
+															}
+														}
+														elseif($name && in_array($type, array('article','comment','link','misc','file'))){
+															$actions[] = asv_actions_array('Updated - '.$name, -1);
+														}
+														break;
+		case 'form_multi_edit':	global $essential_forms;
+														$method = ps('edit_method');
+														$forms = ps('selected_forms');
+														if (is_array($forms) && $method == 'delete'){
+															foreach ($forms as $name){
+																if (!in_array($name, $essential_forms)){
+																	$actions[] = asv_actions_array('Delete - '.$name, -1);
+																}
+															}
+														}
+														break;
+	}
+	return $actions;
 }
 
 function asv_tracker_css($step=''){
+	
 }
 
 function asv_tracker_diag($step=''){
@@ -240,6 +306,10 @@ function asv_tracker_log($step=''){
 }
 
 function asv_tracker_import($step=''){
+}
+
+function asv_actions_array($action = '',$id = -1){
+	return array("action" => $action, "id" => $id);
 }
 
 if(@txpinterface == 'admin') {
