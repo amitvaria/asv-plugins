@@ -1,0 +1,46 @@
+# asv_search_input v1.0
+# Extends the functionality of the built-in txp:search_input tag
+# Amit Varia
+# http://www.amitvaria.com/
+
+# ......................................................................
+# This is a plugin for Textpattern - http://textpattern.com/
+# To install: textpattern > admin > plugins
+# Paste the following text into the 'Install plugin' box:
+# ......................................................................
+
+YTo5OntzOjQ6Im5hbWUiO3M6MTY6ImFzdl9zZWFyY2hfaW5wdXQiO3M6NzoidmVyc2lvbiI7
+czozOiIxLjAiO3M6NjoiYXV0aG9yIjtzOjEwOiJBbWl0IFZhcmlhIjtzOjEwOiJhdXRob3Jf
+dXJpIjtzOjI1OiJodHRwOi8vd3d3LmFtaXR2YXJpYS5jb20vIjtzOjExOiJkZXNjcmlwdGlv
+biI7czo2MjoiRXh0ZW5kcyB0aGUgZnVuY3Rpb25hbGl0eSBvZiB0aGUgYnVpbHQtaW4gdHhw
+OnNlYXJjaF9pbnB1dCB0YWciO3M6NDoidHlwZSI7aTowO3M6NDoiaGVscCI7czo0MjA6Igo8
+aDE+YXN2X3RyYWNrZXI8L2gxPgo8cD5JIGNyZWF0ZWQgdGhpcyBwbHVnaW4gdG8gYWxsb3cg
+YWRtaW5pc3RyYXRvcnMgdG8gdHJhY2sgY2hhbmdlcyB0byB0aGVpciBkYXRhYmFzZS4gWW91
+IGNhbiB2aWV3IGNoYW5nZXMgdW5kZXIgJ0V4dGVuc2lvbnMgPiB0eHAgdHJhY2tlcicsIGJ1
+dCBmb3IgcmlnaHQgbm93IGl0IHdpbGwgb25seSBjaGFuZ2VzIHRvIGFydGljbGVzLCBmaWxl
+cywgYW5kIGltYWdlcy4gVGhlIGN1cnJlbnQgdmlzaW9uIGlzIHRvIGNvbXBsZXRlIGFkZGlu
+ZyBhbGwgdGhlIHBvc3NpYmxlIHdheXMgdG8gY2hhbmdlIHRoZSBkYXRhYmFzZSwgYWxsb3cg
+dXNlciBncmFudWxhcml0eSBvbiB3aGljaCBjaGFuZ2VzIHRvIHRyYWNrLCBhbmQgZXZlbnR1
+YWxseSBlbWFpbCBub3RpZmljYXRpb24gb24gY2hhbmdlcy48L3A+CiI7czo0OiJjb2RlIjtz
+OjExMjg6ImZ1bmN0aW9uIGFzdl9zZWFyY2hfaW5wdXQoJGF0dHMpIC8vIGlucHV0IGZvcm0g
+Zm9yIHNlYXJjaCBxdWVyaWVzCnsKCWdsb2JhbCAkcSwgJHBlcm1saW5rX21vZGU7CglleHRy
+YWN0KGxBdHRzKGFycmF5KAoJCSdmb3JtJyAgICA9PiAnc2VhcmNoX2lucHV0JywKCQknd3Jh
+cHRhZycgPT4gJ3AnLAoJCSdzaXplJyAgICA9PiAnMTUnLAoJCSdsYWJlbCcgICA9PiAnJywK
+CQknbGFiZWx3cmFwJyA9PiAncCcsCgkJJ2xhYmVsY2xhc3MnID0+ICcnLAoJCSdidXR0b24n
+ICA9PiAnJywKCQknc2VjdGlvbicgPT4gJycsCgkJJ2J1dHRvbmNsYXNzJyA9PiAnJywKCQkn
+Ym94Y2xhc3MnID0+JycKCSksJGF0dHMpKTsKCglpZiAoJGZvcm0pIHsKCQkkcnMgPSBmZXRj
+aCgnZm9ybScsJ3R4cF9mb3JtJywnbmFtZScsJGZvcm0pOwoJCWlmICgkcnMpIHsKCQkJcmV0
+dXJuICRyczsKCQl9Cgl9CgoJKCFlbXB0eSgkbGFiZWxjbGFzcykpID8gJGNsYXNzID0gImNs
+YXNzPSIuJGxhYmVsY2xhc3MgOiAkY2xhc3M9Jyc7CgoJJGhlYWQgPSAoIWVtcHR5KCRsYWJl
+bCkgJiYgIWVtcHR5KCRsYWJlbHdyYXApKSA/IHRhZygkbGFiZWwsICRsYWJlbHdyYXAsICRj
+bGFzcykgOiAnJzsKCSRidXR0b25jbGFzc2VkID0gKCFlbXB0eSgkYnV0dG9uY2xhc3MpKSA/
+ICdjbGFzcz0iJy4kYnV0dG9uY2xhc3MuJyInIDogJyc7Cgkkc3ViID0gKCFlbXB0eSgkYnV0
+dG9uKSkgPyAnPGlucHV0IHR5cGU9InN1Ym1pdCIgJy4kYnV0dG9uY2xhc3NlZC4nIHZhbHVl
+PSInLiRidXR0b24uJyIgLz4nIDogJyc7Cgkkb3V0ID0gZklucHV0KCd0ZXh0JywncScsJHEs
+ICRib3hjbGFzcywnJywnJywkc2l6ZSk7Cgkkb3V0ID0gKCFlbXB0eSgkbGFiZWwpKSA/ICRv
+dXQuJHN1YiA6ICRvdXQuJHN1YjsKCSRvdXQgPSAoJHdyYXB0YWcpID8gdGFnKCRvdXQsJHdy
+YXB0YWcpIDogJG91dDsKCglpZiAoISRzZWN0aW9uKQoJCXJldHVybiAnPGZvcm0gYWN0aW9u
+PSInLmh1LiciIG1ldGhvZD0iZ2V0Ij4nLiRoZWFkLiRvdXQuJzwvZm9ybT4nOwoKCSR1cmwg
+PSBwYWdlbGlua3VybChhcnJheSgncyc9PiRzZWN0aW9uKSk7CglyZXR1cm4gJzxmb3JtIGFj
+dGlvbj0iJy4kdXJsLiciIG1ldGhvZD0iZ2V0Ij4nLiRoZWFkLiRvdXQuJzwvZm9ybT4nOwp9
+CiI7czozOiJtZDUiO3M6MzI6IjQ4ZjI3OGM3MmYzNWZkMjc1ZjdkZWEzMTcyYmI1ZmM0Ijt9
