@@ -2,7 +2,7 @@
 
 // Either copy classTextile.php to your plugin directory, or uncomment the following
 // line and edit it to give the location where classTextile.php can be found
-//ini_set('include_path', ini_get('include_path') . './textpattern/lib/');
+ini_set('include_path', ini_get('include_path') . '../');
 
 if (empty($test)) {
 	echo compile_plugin();
