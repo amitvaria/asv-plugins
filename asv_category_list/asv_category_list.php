@@ -129,6 +129,8 @@ h2(#History). History
 | 1.0 | ? | Plugin created|
 | 1.5 | 12/05/2006 | Added RSS functionality |
 
+p. "Back to Contents":#Contents
+
 # --- END PLUGIN HELP ---
 <?php
 }
