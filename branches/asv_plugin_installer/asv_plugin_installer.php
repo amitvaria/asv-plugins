@@ -19,7 +19,7 @@ $plugin['description'] = 'Adaption of Rob Sable\'s installer';
 // 0 = regular plugin; loaded on the public web side only
 // 1 = admin plugin; loaded on both the public and admin side
 // 2 = library; loaded only when include_plugin() or require_plugin() is called
-$plugin['type'] = 0; 
+$plugin['type'] = 1; 
 
 
 @include_once('zem_tpl.php');
@@ -34,6 +34,16 @@ h1. help!
 }
 
 # --- BEGIN PLUGIN CODE ---
+if(@txpinterface == 'admin') {
+	add_privs('asv_plugin_installer','1,2');
+	register_tab('extensions', 'asv_plugin_installer', 'Plugin Installer');
+	register_callback('asv_plugin_installer', 'asv_plugin_installer');
+}
+
+function asv_plugin_installer($event, $step){
+	pagetop("Plugin Installer");
+	
+}
 
 # --- END PLUGIN CODE ---
 
