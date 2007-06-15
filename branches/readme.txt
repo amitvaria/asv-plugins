@@ -1,1 +1,0 @@
-This repository holds all my plugins.
