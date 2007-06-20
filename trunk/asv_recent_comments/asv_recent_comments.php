@@ -57,6 +57,7 @@ function asv_recent_comments($atts)
 		'id' => '',
 		'clabel' => '',
 		'slabel' => '',
+		'idexclude' => ''
 	), $atts));
 	
 	($idaware == 'y') ? $id = $pretext['id'] : $id;
@@ -88,7 +89,13 @@ function asv_recent_comments($atts)
 				
 				$cexclude = do_list($cexclude);
 				$cexclude = join("','", doSlash($cexclude));
-				$cexclude = "and (textpattern.Category1 in('$cexclude') OR textpattern.Category2 in('$cexclude'))";
+				$cexclude = "and (textpattern.Category1 not in('$cexclude') OR textpattern.Category2 not in('$cexclude'))";
+		}
+		if ($idexclude){
+				$idexclude = do_list($idexclude);
+				$idexclude = join("','", doSlash($idexclude));
+				$idexclude = "and textpattern.ID not in('$idexclude')";
+		
 		}
 	if(empty($sections) && empty($categories) && empty($sexclude) && empty($cexclude)){	
 		$rs = safe_rows_start('*', 'txp_discuss', 
