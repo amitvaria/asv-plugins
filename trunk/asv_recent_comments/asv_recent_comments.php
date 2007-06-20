@@ -94,7 +94,7 @@ function asv_recent_comments($atts)
 		if ($idexclude){
 				$idexclude = do_list($idexclude);
 				$idexclude = join("','", doSlash($idexclude));
-				$idexclude = "and textpattern.ID not in(1)";
+				$idexclude = "and textpattern.ID not in('$idexclude')";
 		
 		}
 	if(empty($sections) && empty($categories) && empty($sexclude) && empty($cexclude) && empty($idexclude)){	
