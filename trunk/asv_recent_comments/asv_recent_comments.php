@@ -94,16 +94,16 @@ function asv_recent_comments($atts)
 		if ($idexclude){
 				$idexclude = do_list($idexclude);
 				$idexclude = join("','", doSlash($idexclude));
-				$idexclude = "and textpattern.ID not in('$idexclude')";
+				$idexclude = "and textpattern.ID not in(1)";
 		
 		}
-	if(empty($sections) && empty($categories) && empty($sexclude) && empty($cexclude)){	
+	if(empty($sections) && empty($categories) && empty($sexclude) && empty($cexclude) && empty($idexclude)){	
 		$rs = safe_rows_start('*', 'txp_discuss', 
 			"visible = ".VISIBLE." order by $sort limit 0,$limit");
 			
 	}
 	else{
-		$rs = safe_rows_start('txp_discuss.*, textpattern.Section, textpattern.Category1, textpattern.Category2', 'txp_discuss, textpattern', "txp_discuss.parentID = textpattern.ID AND visible = ".VISIBLE." $sinclude $cinclude $sexclude $cexclude order by $sort limit 0,$limit");
+		$rs = safe_rows_start('txp_discuss.*, textpattern.Section, textpattern.Category1, textpattern.Category2', 'txp_discuss, textpattern', "txp_discuss.parentID = textpattern.ID AND visible = ".VISIBLE." $sinclude $cinclude $sexclude $cexclude $idexclude order by $sort limit 0,$limit");
 	}
 	}
 	($form != '') ? $formed = fetch_form($form) : '';
