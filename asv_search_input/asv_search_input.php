@@ -22,7 +22,7 @@ $plugin['description'] = 'Extends the functionality of the built-in txp:search_i
 $plugin['type'] = 0; 
 
 
-@include_once('zem_tpl.php');
+@include_once('../zem_tpl.php');
 
 if (0) {
 ?>
