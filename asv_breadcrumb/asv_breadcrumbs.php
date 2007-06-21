@@ -50,6 +50,7 @@ function asv_breadcrumb($atts)
 	'homepage' => 'false',
 	'catsep' => '/'
 	),$atts));
+	
 	$linked = ($link == 'y')? true: false;
 	$homepaged = ($homepage == 'y')? true: false;
 	$showsectioned = ($showsection == 'y')? true: false;
@@ -57,7 +58,9 @@ function asv_breadcrumb($atts)
 	
 	$content = array();
 	extract($pretext);
-	if($showsectioned && !empty($s) && $s!= 'default'){ 
+	
+	if($showsectioned && !empty($s) && $s!= 'default')
+	{ 
 		$section_title = ($title) ? fetch_section_title($s) : $s;
 		$section_title_html = escape_title($section_title);
 		$content[] = ($linked)? (
@@ -65,7 +68,8 @@ function asv_breadcrumb($atts)
 		):$section_title_html;
 	}
 	
-	if(empty($thisarticle)){
+	if(empty($thisarticle))
+	{
 		$category1 = empty($c)? '': $c;
 	}
 	else{
@@ -73,8 +77,10 @@ function asv_breadcrumb($atts)
 		$category2 = empty($thisarticle['category2'])? "" : $thisarticle['category2'];
 	}
 
-	foreach (getTreePath($category1, 'article') as $cat) {
-		if ($cat['name'] != 'root') {
+	foreach (getTreePath($category1, 'article') as $cat) 
+	{
+		if ($cat['name'] != 'root') 
+		{
 			$category_title_html = $title? escape_title($cat['title']) : $cat['name'];
 			$cat1holder[] = ($linked)? 
 			doTag($category_title_html,'a',$linkclass,' href="'.pagelinkurl(array('c'=>$cat['name'])).'"')
@@ -82,8 +88,10 @@ function asv_breadcrumb($atts)
 		}
 	}
 
-	foreach (getTreePath($category2, 'article') as $cat) {
-		if ($cat['name'] != 'root') {
+	foreach (getTreePath($category2, 'article') as $cat) 
+	{
+		if ($cat['name'] != 'root') 
+		{
 			$category_title_html = $title? escape_title($cat['title']) : $cat['name'];
 			$cat2holder[] = ($linked)? 
 			doTag($category_title_html,'a',$linkclass,' href="'.pagelinkurl(array('c'=>$cat['name'])).'"')
@@ -91,22 +99,32 @@ function asv_breadcrumb($atts)
 		}
 	}
 	
-	if(!empty($cat2holder)){
+	if(!empty($cat2holder))
+	{
 	 $content[] = join($sep, $cat1holder).$catsep.join($sep, $cat2holder);
 	}
-	else{
-		if(!empty($cat1holder)){
+	else
+	{
+		if(!empty($cat1holder))
+		{
 			$content[] = join($sep, $cat1holder);
 		}
 	}
 
 	//Add the label at the end, to prevent breadcrumb for home page
 	//		if (!empty($content)) $content = array_merge(array($label),$content);
-	if ($homepaged){ $content = array_merge(array($label),$content);}
-	else {if (!empty($content)) $content = array_merge(array($label),$content);}
+	if ($homepaged)
+	{ 
+		$content = array_merge(array($label),$content);
+	}
+	else 
+	{
+		if (!empty($content)) 
+			$content = array_merge(array($label),$content);
+	}
+	
 	//Add article title without link if we're on an individual archive page?
 	return doTag(join($sep, $content), $wraptag, $class);
 }
 # --- END PLUGIN CODE ---
-
 ?>
