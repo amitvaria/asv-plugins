@@ -45,12 +45,10 @@ if('admin' == @txpinterface)
 	register_callback('asv_amazon2', 'article');
 }
 
-if(gps('asv_amazon2_action') && gps('asv_searchindex') && gps('asv_keywords'))
+if(gps('asv_amazon2_action') && gps('asv_keywords'))
 {
 	$asv_amazon = new asv_Amazon("US");
-	echo $asv_amazon->request(gps('asv_searchindex'), gps('asv_keywords'), gps('asv_itempage'));
-	
-	
+	echo $asv_amazon->request(gps('asv_keywords'), gps('asv_itempage'));
 	exit;
 }
 
@@ -65,34 +63,27 @@ function asv_amazon2 ($event, $step)
 	$line .= "</h3>";
 
 	$form = "<form><fieldset><legend>Search</legend>".
-		graf("<label for=\"asv_SearchIndex\">Choose a category</label><br />".
-			selectInput('asv_SearchIndex', $asv_searchIndex, $asv_searchIndex, true,'','asv_SearchIndex')).
-		graf("<label for=\"asv_Keywords\">Keywords</label><br />".
-			fInput('text', 'asv_Keywords', '', 'edit', '', '', '20',  '', 'asv_Keywords')).
+		graf(fInput('text', 'asv_Keywords', '', 'edit', '', '', '20',  '', 'asv_Keywords')).
 		fInput('submit','asv_Search','Search',"publish", '', 'asv_loadResults();return false;', '', '').
 		fInput('button','asv_Cancel','Cancel',"publish", '', 'asv_cancelResults();return false;', '', '').
 		"</fieldset></form>";
-	
+	/*graf("<label for=\"asv_SearchIndex\">Choose a category</label><br /><div>".
+			selectInput('asv_SearchIndex', $asv_searchIndex, $asv_searchIndex, true,'','asv_SearchIndex'))."</div>".*/
 	$line .= "<div id=\"asv_amazon2\" style=\"display: none;\">$form</div>";
 	
 	$line = asv_safeJS($line);
 
 
 	$js = <<<EOF
+<SCRIPT LANGUAGE="JavaScript" SRC="/textpattern/jquery.js">
+</SCRIPT>
 <script language="javascript" type="text/javascript">
 <!--
-/*var loc = document.getElementById('edit');
-var brother = document.getElementById('write-status');
-
-//loc.innerHTML = "$line" + loc.innerHTML;
-var td = document.createElement('td');
-td.id = 'asv_amazon2';
-td.innerHTML = "$line";
-loc.childNodes[1].rows[0].appendChild(td);
-*/
-var loc = document.getElementById('article-col-2');
-loc.innerHTML = "$line" + loc.innerHTML;
-
+ 
+ $(document).ready(function() {
+	$("$line").insertBefore("#write-status");
+   });
+   
 function asv_onClick(elem)
 {
 	var dest = document.getElementById('body');
@@ -101,17 +92,16 @@ function asv_onClick(elem)
 
 function asv_loadResults()
 {
-	var searchindex = document.getElementById('asv_SearchIndex');
-	var keywords = document.getElementById('asv_Keywords');
-
-	var url ='/index.php?asv_amazon2_action=1&asv_keywords='+keywords.value+'&asv_searchindex='+searchindex.options[searchindex.selectedIndex].text+'&asv_itempage=1';	
-	asv_request(url);
+	var keywords =	$("#asv_Keywords").val();
+	asv_request(keywords, '1');
 	
 	
 }
-function asv_request(url){
-	var dest = document.getElementById('asv_amazon2');
+
+function asv_request(keywords, itempage){
+	var dest = document.getElementById('asv_amazon2');	
 	var exists = document.getElementById('asv_amazon2Results'); ;
+	
 	if(!exists)
 	{
 		exists = document.createElement('div');
@@ -120,50 +110,20 @@ function asv_request(url){
 		dest.appendChild(exists);
 	}
 	exists.childNodes[0].childNodes[1].innerHTML = 'loading...';
-	xmlhttp=null
-	// code for Mozilla, etc.
-	if (window.XMLHttpRequest)
-	{
-		xmlhttp=new XMLHttpRequest()
-	}
-	// code for IE
-	else if (window.ActiveXObject)
-	{
-		xmlhttp=new ActiveXObject("Microsoft.XMLHTTP")
-	}
-	if (xmlhttp!=null)
-	{
-		xmlhttp.onreadystatechange=asv_state_Change;
-		try{
-		xmlhttp.open("GET",url,true);
+	
+	var url ='http://127.0.0.1/index.php?asv_amazon2_action=1&asv_keywords='+keywords+'&asv_itempage='+itempage;
+	$.ajax({
+		url: url,
+		error: function(){
+       		alert('Error loading XML document');
+		},
+		success: function(xml){
+			var text = $('Keywords', xml).text();
+			alert(text);
+			asv_parseResponse(xml);
 		}
-		catch(e){
-		alert(e)
-		}
-		xmlhttp.send(null);
-	}
-	else
-	{
-		alert("Your browser does not support XMLHTTP.")
-	}
-}
+	});
 
-function asv_state_Change()
-{			
-// if xmlhttp shows "loaded"
-if (xmlhttp.readyState==4)
-  {
-  // if "OK"
-  if (xmlhttp.status==200)
-    {
-    // ...some code here...
-    	asv_parseResponse(xmlhttp.responseText);
-    }
-  else
-    {
-    alert("Problem retrieving XML data")
-    }
-  }
 }
 
 function asv_cancelResults()
@@ -175,36 +135,20 @@ function asv_cancelResults()
 		dest.removeChild(remove);
 	}
 }
-var doc;
 
-function asv_parseResponse(response)
-{
-// code for IE
-if (window.ActiveXObject)
-  {
-  doc=new ActiveXObject("Microsoft.XMLDOM");
-  doc.async="false";
-  doc.loadXML(response);
-  }
-// code for Mozilla, Firefox, Opera, etc.
-else
-  {
-  var parser=new DOMParser();
-  doc=parser.parseFromString(response,"text/xml");
-  }
-	
-	var x=doc.documentElement;
-	var dest = document.getElementById('asv_amazon2ResultsData');
-	
+function asv_parseResponse(xml)
+{	
+	$(xml).find('Item').each(function(){
+       alert($(this).text());
+    });
+    
+	/*
 	//check for errors
-//	alert((x.getElementsByTagName('Errors')).nodeValue);
-	if(x.getElementsByTagName('Errors').length > 0)
+	if($(xml))
 	{
 	 dest.innerHTML = "no results found";
 	 return;
 	}
-	
-	
 	
 	var items = x.getElementsByTagName('Item');
 	var itemPage = x.getElementsByTagName('ItemPage');
@@ -233,7 +177,7 @@ else
 	
 	
 	dest.innerHTML = line;
-	dest.setAttribute("style", "max-height: 500px; overflow: auto;");
+	dest.setAttribute("style", "max-height: 500px; overflow: auto;");*/
 }
 
 function asv_prevnext_link(keywords, searchIndex, itemPage, totalPages)
@@ -278,6 +222,7 @@ class asv_Amazon
 	var $operation = "ItemSearch";
 	var $service = "AWSECommerceService";
 	var $baseURL = "http://ecs.amazonaws.com/onca/xml?";
+	var $searchIndex = "Blended";
 	var $responseGroup = "Medium";
 	var $locale;
 	
@@ -287,9 +232,9 @@ class asv_Amazon
 		
 	}
 	
-	function request($searchIndex, $keywords, $itemPage = "1")
+	function request($keywords, $itemPage = "1")
 	{
-		$url = $this->buildURL(doSlash($searchIndex), doSlash($keywords), doSlash($itemPage));
+		$url = $this->buildURL(doSlash($keywords), doSlash($itemPage));
 		// create a new curl resource
 		$ch = curl_init();
 
@@ -305,9 +250,9 @@ class asv_Amazon
 		//return "not implemented yet";
 	}
 	
-	function buildURL /* private */($searchIndex, $keywords, $itemPage = "1")
+	function buildURL /* private */($keywords, $itemPage = "1")
 	{
-		$url = $this->baseURL."Service=".$this->service."&Operation=".$this->operation."&SubscriptionId=".$this->api_key."&SearchIndex=".$searchIndex."&Keywords=".$keywords."&ResponseGroup=".$this->responseGroup."&ItemPage=".$itemPage;
+		$url = $this->baseURL."Service=".$this->service."&Operation=".$this->operation."&SubscriptionId=".$this->api_key."&SearchIndex=".$this->searchIndex."&Keywords=".$keywords."&ResponseGroup=".$this->responseGroup."&ItemPage=".$itemPage;
 		return $url;
 	}
 }
