@@ -129,7 +129,7 @@ function asv_amazon2 ($event, $step)
 
 	$line .= "</h3>";
 
-	$form = "<form onSubmit=\"asv_loadResults(); return false;\"><fieldset><legend>Search</legend>".
+	$form = "<form onSubmit=\"asv_loadResults(); return false;\"><h3>Amazon2</h3><p id=\"asv_amazon2_close\"><a href=\"#\" onclick=\"$('#asv_amazon2wrapper').slideToggle('slow'); return false;\">close</a></p><fieldset><legend>Search</legend>".
 	
 		graf("<label for=\"asv_SearchIndex\">Choose a category</label><br />".
 		
@@ -177,7 +177,17 @@ function asv_amazon2 ($event, $step)
 //Attach the amazon2 plugin to the page
 
  $(document).ready(function() {
-	$("$line").insertBefore("#write-status");
+	$("$line").insertBefore($("#advanced").prev());
+	
+	$("#asv_amazon2wrapper").css("position", "absolute");
+	$("#asv_amazon2wrapper").css("top", "80px");
+	$("#asv_amazon2wrapper").css("right", "0px");
+	$("#asv_amazon2wrapper").css("width", "200px");
+	$("#asv_amazon2wrapper").css("background-color", "#ffe");
+	$("#asv_amazon2wrapper").css("padding", "20px");
+	$("#asv_amazon2wrapper > h3").css("float", "left");
+	$("#asv_amazon2wrapper > h3").css("display", "inline");
+	$("#asv_amazon2_close").css("text-align", "right");
    });
 
 //-------------------------------------------------------------
