@@ -29,7 +29,37 @@ if (0) {
 # --- BEGIN PLUGIN HELP ---
 h1. asv_amazon2
 
-_more help to come_
+h2. version 0.2
+
+h3. What's new?
+
+A long time ago, I created a plugin called asv_amazon, which let you display products from Amazon on your site. It worked, but inserting the product required you to go to Amazon, copy the ASIN number, and paste into the TextPattern. What a hassle! Well I finally got around to writing the next version of asv_amazon. I've called it asv_amazon2 since it is completely written and works in a whole new way.
+
+h3. How does it work?
+
+Simple - when writing an article just click on the "Amazon2" link in the top right column. You can search and add products to your post by clicking the "add" button next to each item.
+
+h3. Creating a form
+
+With version 0.2, you will have to have forms to generate the layout of the product on your page. When creating a new 'misc' form you can use the following values:
+
+asv_amazon2_url
+asv_amazon2_sImageUrl
+asv_amazon2_mImageUrl
+asv_amazon2_lImageUrl
+asv_amazon2_asin
+asv_amazon2_title
+
+asv_amazon2 will just replace these literals with their product counterpart, so:
+
+bc. <a href="asv_amazon2_url"><img src="asv_amazon2_sImageUrl" /><br />asv_amazon2_title</a>
+
+returns:
+
+bc. <a href="http://www.amazon.com/gp/redirect.html%3FASIN=1590598326%26tag=ws%26lcode=xm2%26cID=2025%26ccmID=165953%26location=/o/ASIN/1590598326%253FSubscriptionId=0Y8F1YV1N2YSGJ1MC202"><img src="http://ec1.images-amazon.com/images/I/01yaq1etjKL.jpg" /><br />Textpattern Solutions: PHP-Based Content Management Made Easy (Solutions)</a>
+which will display like this:
+
+<a href="http://www.amazon.com/gp/redirect.html%3FASIN=1590598326%26tag=ws%26lcode=xm2%26cID=2025%26ccmID=165953%26location=/o/ASIN/1590598326%253FSubscriptionId=0Y8F1YV1N2YSGJ1MC202"><img src="http://ec1.images-amazon.com/images/I/01yaq1etjKL.jpg" /><br />Textpattern Solutions: PHP-Based Content Management Made Easy (Solutions)</a>
 
 # --- END PLUGIN HELP ---
 <?php
@@ -45,11 +75,45 @@ if('admin' == @txpinterface)
 	register_callback('asv_amazon2', 'article');
 }
 
+//-------------------------------------------------------------
+
 if(gps('asv_amazon2_action') && gps('asv_keywords'))
 {
 	$asv_amazon = new asv_Amazon("US");
 	header('Content-Type: text/xml'); 
 	echo $asv_amazon->request(gps('asv_keywords'), gps('asv_searchindex'), gps('asv_itempage'));
+	exit;
+}
+
+//-------------------------------------------------------------
+
+if(gps('asv_amazon2_form_action'))
+{
+	$form = gps('asv_amazon2_form');
+	
+	$asv_amazon2_contents = array();
+	$asv_amazon2_contents['asv_amazon2_url'] = gps('asv_amazon2_url');
+	$asv_amazon2_contents['asv_amazon2_sImageUrl'] = gps('asv_amazon2_sImageURL');
+	$asv_amazon2_contents['asv_amazon2_mImageUrl'] = gps('asv_amazon2_mImageURL');
+	$asv_amazon2_contents['asv_amazon2_lImageUrl'] = gps('asv_amazon2_lImageURL');
+	$asv_amazon2_contents['asv_amazon2_asin'] = gps('asv_amazon2_url');
+	$asv_amazon2_contents['asv_amazon2_title'] = gps('asv_amazon2_title');	
+	
+	if($form)
+	{
+		$asv_amazon2_form = fetch_form($form);
+		foreach($asv_amazon2_contents as $key=>$value)
+		{
+			$asv_amazon2_form = str_replace($key, $value, 	$asv_amazon2_form);
+		}
+	}
+	else
+	{
+		$asv_amazon2_form = "<a href=\"".$asv_amazon2_contents['asv_amazon2_url']."\"><img src=\"".$asv_amazon2_contents['asv_amazon2_sImageUrl']."\" /><br />".$asv_amazon2_contents['asv_amazon2_title']."</a><br />";
+	}
+	
+	echo($asv_amazon2_form);
+	
 	exit;
 }
 
@@ -85,9 +149,23 @@ function asv_amazon2 ($event, $step)
 	
 	$line = asv_safeJS($line);
 	
-	$forms = array();
+	$rs = safe_column('name', 'txp_form', "type = 'misc'");
+
+	$forms = '<select id="asv_amazon2_form"><option /></select>';
 	
-	$forms[0] = asv_safeJS('<txp:asv_amazon2 asin="[asv_amazon2_asin]"><txp:asv_amazon2_title /><txp:asv_amazon2_imageURL url="[asv_amazon2_imgURLm]" /><txp:asv_amazon2_url /></txp:asv_amazon2>');
+	if ($rs)
+	{
+		$forms = selectInput('asv_amazon2_form', $rs, $form, true, '', 'asv_amazon2_form');
+	}
+	$asv_amazon2_imagesize = array('small', 'medium', 'large');
+	
+	$forms .= graf('OR'.
+				graf('Custom - NOT FUNCTIONAL').
+				 graf(selectInput('asv_amazon2_custom_imagesize', $asv_amazon2_imagesize, $asv_amazon2_imagesize, true, '', 'asv_amazon2_custom_imagesize')).
+				 graf(checkbox('asv_amazon2_custom_includetitle', 'asv_amazon2_custom_includetitle', '1', '', 'asv_amazon2_custom_includetitle').'<label for="asv_amazon2_custom_includetitle">Include title</label>').
+				 graf(checkbox('asv_amazon2_custom_includelink', 'asv_amazon2_custom_includelink', '1', '', 'asv_amazon2_custom_includelink').'<label for="asv_amazon2_custom_includelink">Include link</label')
+		);
+	$forms = asv_safeJS($forms);
 	
 	$js = <<<EOF
 <SCRIPT LANGUAGE="JavaScript" SRC="/textpattern/jquery.js">
@@ -114,7 +192,7 @@ function asv_loadResults()
 //-------------------------------------------------------------
 
 function asv_request(keywords, searchindex, itempage){
-	$('#asv_amazon2form').html('<fieldset><legend>Choose Form</legend><form><select name="amazonForm"><option>default</option></select></form>');
+	$('#asv_amazon2form').html('<fieldset><legend>Choose Form</legend><form>$forms</form>');
 	$('#asv_amazon2Results').html('<fieldset><legend>Results</legend><div id="asv_amazon2ResultsData"><p >loading...</p></div></fieldset>');
 	$("#asv_amazon2ResultsData").css("padding", "0px 0px 10px 0px");
 	$('#asv_amazon2form').show('slow');
@@ -190,19 +268,35 @@ function asv_amazon2_addtoBody(asin)
 	var sImageURL = $('input:hidden[@name=asv_amazon2_sImageURL]').val();
 	var mImageURL = $('input:hidden[@name=asv_amazon2_mImageURL]').val();
 	var lImageURL = $('input:hidden[@name=asv_amazon2_lImageURL]').val();
-	var url = $('input:hidden[@name=asv_amazon2_sImageURL]').val();
+	var url = $('input:hidden[@name=asv_amazon2_url]').val();
+	var form = $("#asv_amazon2_form option[@selected]").text();
 	
-	var line = '';
-	line += "$forms[0]";
-	line = line.replace('[asv_amazon2_asin]', asin);
-	line = line.replace('[asv_amazon2_imgURLs]', sImageURL);
-	line = line.replace('[asv_amazon2_imgURLm]', mImageURL);
-	line = line.replace('[asv_amazon2_imgURLl]', lImageURL);
-	line = line.replace('[asv_amazon2_url]', url);
-	
-	$('#body').appendVal('\\n' + line);
-	
-	
+	if(form != "")
+	{	
+		$.get('index.php',
+			{asv_amazon2_form_action: "1", asv_amazon2_title: title, asv_amazon2_asin: asin, asv_amazon2_sImageURL: sImageURL, asv_amazon2_mImageURL: mImageURL, asv_amazon2_lImageURL: lImageURL, asv_amazon2_url: url, asv_amazon2_form: form },
+		   asv_amazon2_addtoBody_Response
+		 );
+	}
+	else
+	{
+		alert("I haven't implemented the custom builder yet. You'll have to create a form");
+	}
+	/*
+		var imageSize;
+		var includeTitle;
+		var includeLink;
+		$.get('index.php',
+			{asv_amazon2_form_action: "2", asv_amazon2_title: title, asv_amazon2_asin: asin, asv_amazon2_sImageURL: sImageURL, asv_amazon2_mImageURL: mImageURL, asv_amazon2_lImageURL: lImageURL, asv_amazon2_url: url, asv_amazon2_form: form },
+		   asv_amazon2_addtoBody_Response
+	*/
+}
+
+//-------------------------------------------------------------  
+
+function asv_amazon2_addtoBody_Response(response)
+{
+	$('#body').appendVal('\\n' + response);
 }
 
 //-------------------------------------------------------------  
