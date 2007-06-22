@@ -73,6 +73,7 @@ which will display like this:
 if('admin' == @txpinterface) 
 {
 	register_callback('asv_amazon2', 'article');
+	register_callback('asv_amazon2', 'page');
 }
 
 //-------------------------------------------------------------
@@ -104,7 +105,8 @@ if(gps('asv_amazon2_form_action'))
 		$asv_amazon2_form = fetch_form($form);
 		foreach($asv_amazon2_contents as $key=>$value)
 		{
-			$asv_amazon2_form = str_replace($key, $value, 	$asv_amazon2_form);
+			//$asv_amazon2_form = str_replace($key, $value, 	$asv_amazon2_form);
+			
 		}
 	}
 	else
@@ -119,8 +121,65 @@ if(gps('asv_amazon2_form_action'))
 
 //-------------------------------------------------------------
 
+function asv_amazon2_display($atts,$thing)
+{
+	extract(lAtts(array(
+		'url' => '',
+		'smallimage' => '',
+		'mediumimage' => '',
+		'largeimage' => '',
+		'asin' => '',
+		'title' => '',
+		'form' => '',
+	), $atts));
+	
+	if($form)
+	{
+		$thing = fetch_form($form);
+		$thing = str_replace('asv_amazon2_url', $url, $thing);
+		$thing = str_replace('asv_amazon2_sImageUrl', $smallimage, $thing);
+		$thing = str_replace('asv_amazon2_mImageUrl', $mediumimage, $thing);
+		$thing = str_replace('asv_amazon2_lImageUrl', $largeimage, $thing);
+		$thing = str_replace('asv_amazon2_asin', $asin, $thing);
+		$thing = str_replace('asv_amazon2_title', $title, $thing);
+	}
+	else
+	{
+		if($thing)
+		{
+			$thing = str_replace('asv_amazon2_url', $url, $thing);
+			$thing = str_replace('asv_amazon2_sImageUrl', $smallimage, $thing);
+			$thing = str_replace('asv_amazon2_mImageUrl', $mediumimage, $thing);
+			$thing = str_replace('asv_amazon2_lImageUrl', $largeimage, $thing);
+			$thing = str_replace('asv_amazon2_asin', $asin, $thing);
+			$thing = str_replace('asv_amazon2_title', $title, $thing);
+		}
+		else
+		{
+			$thing =  "<a href=\"".$url."\"><img src=\"".$smallimage."\" /><br />".$title."</a><br />";
+		}
+	}
+	return $thing;
+}
+
+//-------------------------------------------------------------
+
 function asv_amazon2 ($event, $step)
 {
+	$asv_amazon2_location = '';
+	$asv_amazon2_textarea= '';
+	
+	switch($event){
+		case "article": 
+			$asv_amazon2_location = "advanced";
+			$asv_amazon2_textarea = "body";
+			break;
+		case "page":
+			$asv_amazon2_location = "misc-tags";
+			$asv_amazon2_textarea = "html";
+			break;
+	}
+	
 	$asv_searchIndex = array("Apparel", "Baby", "Blended", "Books", "Classical", "DVD", "DigitalMusic", "Electronics", "GourmetFood", "HealthPersonalCare", "Jewelry", "Kitchen", "Magazines", "Merchants", "Miscellaneous", "Music", "MusicTracks", "MusicalInstruments", "OfficeProducts", "OutdoorLiving", "PCHardware", "PetSupplies", "Photo", "Restaurants", "Software", "SportingGoods", "Tools", "Toys", "VHS", "Video", "VideoGames", "WirelessAccessories");
 
 	$line = "<h3 class=\"plain\">";
@@ -177,7 +236,8 @@ function asv_amazon2 ($event, $step)
 //Attach the amazon2 plugin to the page
 
  $(document).ready(function() {
-	$("$line").insertBefore($("#advanced").prev());
+	$("$line").insertBefore($("#$asv_amazon2_location").prev());
+	$("#$asv_amazon2_textarea").attr("onblur", "storeCaret(this); return false;");
 	
 	$("#asv_amazon2wrapper").css("position", "absolute");
 	$("#asv_amazon2wrapper").css("top", "80px");
@@ -265,8 +325,31 @@ $.fn.appendVal = function(txt) {
     return this.each(function(){
         this.value += txt;
     });
-
 }; 
+
+//-------------------------------------------------------------  
+
+function storeCaret (textEl)
+{
+	if (textEl.createTextRange)
+	{
+		textEl.caretPos = document.selection.createRange();
+		alert(textEl.caretPos);
+	}
+}
+
+//-------------------------------------------------------------  
+
+function insertAtCaret (textEl, text) {
+	if (textEl.createTextRange && textEl.caretPos) {
+		var caretPos = textEl.caretPos;
+		caretPos.text =
+		caretPos.text.charAt(caretPos.text.length - 1) == ' ' ?
+		text + ' ' : text;
+	}
+	else
+		textEl.value = text;
+	}
 
 //-------------------------------------------------------------  
 
@@ -281,6 +364,19 @@ function asv_amazon2_addtoBody(asin)
 	var url = $('input:hidden[@name=asv_amazon2_url]').val();
 	var form = $("#asv_amazon2_form option[@selected]").text();
 	
+	var asv_tag = '<txp:asv_amazon2_display ';
+	asv_tag += (title)? 'title="'+title+'" ' : "";
+	asv_tag += (sImageURL)? 'smallimage="'+sImageURL+'" ' : "";
+	asv_tag += (mImageURL)? 'mediumimage="'+mImageURL+'" ' : "";
+	asv_tag += (lImageURL)? 'largeimage="'+lImageURL+'" ' : "";
+	asv_tag += (url)? 'url="'+url+'" ' : "";
+	asv_tag += (form)? 'form="'+form+'" ' : "";
+	asv_tag += ' />';
+	
+	alert(asv_tag);
+	$('#$asv_amazon2_textarea').appendVal(asv_tag);
+	
+	/*
 	if(form != "")
 	{	
 		$.get('index.php',
@@ -291,22 +387,14 @@ function asv_amazon2_addtoBody(asin)
 	else
 	{
 		alert("I haven't implemented the custom builder yet. You'll have to create a form");
-	}
-	/*
-		var imageSize;
-		var includeTitle;
-		var includeLink;
-		$.get('index.php',
-			{asv_amazon2_form_action: "2", asv_amazon2_title: title, asv_amazon2_asin: asin, asv_amazon2_sImageURL: sImageURL, asv_amazon2_mImageURL: mImageURL, asv_amazon2_lImageURL: lImageURL, asv_amazon2_url: url, asv_amazon2_form: form },
-		   asv_amazon2_addtoBody_Response
-	*/
+	}*/
 }
 
 //-------------------------------------------------------------  
 
 function asv_amazon2_addtoBody_Response(response)
 {
-	$('#body').appendVal('\\n' + response);
+	insertAtCaret($('#$asv_amazon2_textarea'), response);
 }
 
 //-------------------------------------------------------------  
