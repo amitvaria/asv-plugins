@@ -48,6 +48,7 @@ if('admin' == @txpinterface)
 if(gps('asv_amazon2_action') && gps('asv_keywords'))
 {
 	$asv_amazon = new asv_Amazon("US");
+	header('Content-Type: text/xml'); 
 	echo $asv_amazon->request(gps('asv_keywords'), gps('asv_itempage'));
 	exit;
 }
@@ -94,110 +95,81 @@ function asv_loadResults()
 {
 	var keywords =	$("#asv_Keywords").val();
 	asv_request(keywords, '1');
-	
-	
+}
+
+function asv_removeResults()
+{
+	$('#asv_amazon2Results').remove();
 }
 
 function asv_request(keywords, itempage){
-	var dest = document.getElementById('asv_amazon2');	
-	var exists = document.getElementById('asv_amazon2Results'); ;
+	$('#asv_amazon2Results').remove();
+	$('<div id="asv_amazon2Results"><fieldset><legend>Results</legend><div id="asv_amazon2ResultsData"><p >loading...</p></div></fieldset></div>').insertBefore("#write-status");
+	$("#asv_amazon2ResultsData").css("padding", "0px 0px 10px 0px");
 	
-	if(!exists)
-	{
-		exists = document.createElement('div');
-		exists.id = 'asv_amazon2Results';
-		exists.innerHTML = '<fieldset><legend>Results</legend><div id="asv_amazon2ResultsData"><p>loading...</p></div></fieldset>';
-		dest.appendChild(exists);
-	}
-	exists.childNodes[0].childNodes[1].innerHTML = 'loading...';
-	
-	var url ='http://127.0.0.1/index.php?asv_amazon2_action=1&asv_keywords='+keywords+'&asv_itempage='+itempage;
-	$.ajax({
-		url: url,
-		error: function(){
-       		alert('Error loading XML document');
-		},
-		success: function(xml){
-			var text = $('Keywords', xml).text();
-			alert(text);
-			asv_parseResponse(xml);
-		}
-	});
+	$.get('index.php',
+	 	{asv_amazon2_action: "1", asv_keywords: escape(keywords), asv_itempage: itempage },
+	   asv_parseResponse,
+	   "xml"
+ );
 
 }
 
 function asv_cancelResults()
 {
-	var dest = document.getElementById('asv_amazon2'); 
-	var remove = document.getElementById('asv_amazon2Results'); 
-	if(remove)
-	{
-		dest.removeChild(remove);
-	}
+	$('#asv_amazon2Results').remove();
 }
 
 function asv_parseResponse(xml)
 {	
+	var itemPage = $('ItemPage', xml).text();
+	
+	var totalPages = $('TotalPages', xml).text();
+	var keywords = $('Keywords', xml).text();
+	var line ="";
+
+	line += asv_prevnext_link(keywords, itemPage, totalPages, "top");
+
 	$(xml).find('Item').each(function(){
-       alert($(this).text());
-    });
-    
-	/*
-	//check for errors
-	if($(xml))
-	{
-	 dest.innerHTML = "no results found";
-	 return;
-	}
-	
-	var items = x.getElementsByTagName('Item');
-	var itemPage = x.getElementsByTagName('ItemPage');
-	var totalPages = x.getElementsByTagName('TotalPages');
-	var keywords = x.getElementsByTagName('Keywords');
-	var searchIndex = x.getElementsByTagName('SearchIndex');
-	itemPage = itemPage[0].childNodes[0].nodeValue;
-	totalPages = totalPages[0].childNodes[0].nodeValue;
-	keywords = keywords[0].childNodes[0].nodeValue;
-	searchIndex = searchIndex[0].childNodes[0].nodeValue;	
-	
-	var line = '';
-	line += asv_prevnext_link(keywords, searchIndex, itemPage, totalPages);
-	for(i=0; i<items.length; i++){
-		var title = items[i].getElementsByTagName('Title');
-		var imageURL = items[i].getElementsByTagName('SmallImage');
-		var url = items[i].getElementsByTagName('DetailPageURL');
+		var title = $('Title',this).text();
+		var imageURL = $("SmallImage > URL",this).text();
+		var url = $('DetailPageURL',this).text();
 		
-		var amazonHTML = '<a href="'+url[0].childNodes[0].nodeValue + '"><img src="' + imageURL[0].childNodes[0].childNodes[0].nodeValue + '" style="display: block;margin-left: auto;margin-right: auto;"/><span style="text-align: center">' + title[0].childNodes[0].nodeValue + '</span></a>' ;
-		var click ='<a href="#" onclick="asv_onClick(\'' + title[0].childNodes[0].nodeValue + '\');return false;">add</a>';
-		line += '<p>' + amazonHTML + '<hr style="padding: 0px; margin: 0px; height: 1px; color: #000;" />' + click + '</p>';
-	}
-	line+= '<hr />';
-	
-	line += asv_prevnext_link(keywords, searchIndex, itemPage, totalPages);
-	
-	
-	dest.innerHTML = line;
-	dest.setAttribute("style", "max-height: 500px; overflow: auto;");*/
+		var amazonHTML = '<a href="'+url+'"><img src="'+imageURL+'" style="display: block;margin-left: auto;margin-right: auto;"/><span style="text-align: center">' + title + '</span></a>' ;
+		
+		var click ='<a href="#" onclick="asv_onClick(\'' + title+ '\');return false;">add</a>';
+		line += '<p>' + amazonHTML + '<hr style="padding: 0px; margin: 0px§; height: 1px; color: #000;" />' + click + '</p>';
+    });
+
+	line += asv_prevnext_link(keywords, itemPage, totalPages, "bottom");
+    
+    $("#asv_amazon2ResultsData").before('<div id="asv_amazon2ResultsData"><p>' +line + '</p></div>').remove();
+	$("#asv_amazon2ResultsData").css("max-height", "500px");
+	$("#asv_amazon2ResultsData").css("overflow", "auto");
+	$("#asv_amazon2ResultsData").css("padding", "0px 0px 10px 0px");
 }
 
-function asv_prevnext_link(keywords, searchIndex, itemPage, totalPages)
-{
-
-	line='<p style="text-align: center;">';
-	itemPage = parseInt(itemPage);
-	var url ='/index.php?asv_amazon2_action=1&asv_keywords='+keywords+'&asv_searchindex='+searchIndex+'&asv_itempage=';
-	var text = '';
-	if(itemPage>1){
-		var pItemPage = itemPage - 1;
-		line += '<a href="#" onclick="asv_request(\''+url + '' + pItemPage+'\');return false;">previous</a> | ';
-	}
-	if(itemPage<totalPages){
-		var nItemPage = itemPage + 1;
-		line += '<a href="#" onclick="asv_request(\''+url + '' + nItemPage+'\');return false;">next</a>';
+function asv_prevnext_link(keywords, itemPage, totalPages, loc)
+{	
+	line ='';
+	if(parseInt(totalPages)>1){
+		if(loc=="bottom") line+='<hr />';
+		line+='<p style="text-align: center;">';
 		
+		itemPage = parseInt(itemPage);
+		var text = '';
+		if(itemPage>1){
+			var pItemPage = itemPage - 1;
+			line += '<a href="#" onclick="asv_removeResults(); asv_request(\''+keywords + '\',\'' + pItemPage+'\');return false;">previous</a> | ';
+		}
+		if(itemPage<totalPages){
+			var nItemPage = itemPage + 1;
+			line += '<a href="#" onclick="asv_removeResults(); asv_request(\''+keywords + '\',\'' + nItemPage+'\');return false;">next</a>';
+			
+		}
+		line+='</p>';
+		if(loc=="top") line+='<hr />';
 	}
-	
-	line+='<hr /></p>';
 	return line;
 }
 
@@ -223,7 +195,8 @@ class asv_Amazon
 	var $service = "AWSECommerceService";
 	var $baseURL = "http://ecs.amazonaws.com/onca/xml?";
 	var $searchIndex = "Blended";
-	var $responseGroup = "Medium";
+	var $responseGroup = "Images,Small";
+	var $version = "2005-03-23";
 	var $locale;
 	
 	function asv_Amazon($locale)
@@ -252,7 +225,7 @@ class asv_Amazon
 	
 	function buildURL /* private */($keywords, $itemPage = "1")
 	{
-		$url = $this->baseURL."Service=".$this->service."&Operation=".$this->operation."&SubscriptionId=".$this->api_key."&SearchIndex=".$this->searchIndex."&Keywords=".$keywords."&ResponseGroup=".$this->responseGroup."&ItemPage=".$itemPage;
+		$url = $this->baseURL."Service=".$this->service."&Operation=".$this->operation."&SubscriptionId=".$this->api_key."&SearchIndex=".$this->searchIndex."&Keywords=".$keywords."&ResponseGroup=".$this->responseGroup."&ItemPage=".$itemPage."&Version=".$this->version;
 		return $url;
 	}
 }
