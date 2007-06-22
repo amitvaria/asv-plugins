@@ -49,7 +49,7 @@ if(gps('asv_amazon2_action') && gps('asv_keywords'))
 {
 	$asv_amazon = new asv_Amazon("US");
 	header('Content-Type: text/xml'); 
-	echo $asv_amazon->request(gps('asv_keywords'), gps('asv_itempage'));
+	echo $asv_amazon->request(gps('asv_keywords'), gps('asv_searchindex'), gps('asv_itempage'));
 	exit;
 }
 
@@ -63,13 +63,14 @@ function asv_amazon2 ($event, $step)
 
 	$line .= "</h3>";
 
-	$form = "<form><fieldset><legend>Search</legend>".
-		graf(fInput('text', 'asv_Keywords', '', 'edit', '', '', '20',  '', 'asv_Keywords')).
+	$form = "<form onSubmit=\"asv_loadResults(); return false;\"><fieldset><legend>Search</legend>".
+		graf("<label for=\"asv_SearchIndex\">Choose a category</label><br />".
+			selectInput('asv_SearchIndex', $asv_searchIndex, $asv_searchIndex, true,'','asv_SearchIndex')).
+		graf("<label for=\"asv_Keywords\">Keywords</label><br />".
+			fInput('text', 'asv_Keywords', '', 'edit', '', '', '20',  '', 'asv_Keywords')).
 		fInput('submit','asv_Search','Search',"publish", '', 'asv_loadResults();return false;', '', '').
 		fInput('button','asv_Cancel','Cancel',"publish", '', 'asv_cancelResults();return false;', '', '').
 		"</fieldset></form>";
-	/*graf("<label for=\"asv_SearchIndex\">Choose a category</label><br /><div>".
-			selectInput('asv_SearchIndex', $asv_searchIndex, $asv_searchIndex, true,'','asv_SearchIndex'))."</div>".*/
 	$line .= "<div id=\"asv_amazon2\" style=\"display: none;\">$form</div>";
 	
 	$line = asv_safeJS($line);
@@ -94,7 +95,8 @@ function asv_onClick(elem)
 function asv_loadResults()
 {
 	var keywords =	$("#asv_Keywords").val();
-	asv_request(keywords, '1');
+	var searchindex = $("#asv_SearchIndex option[@selected]").text();
+	asv_request(keywords, searchindex, '1');
 }
 
 function asv_removeResults()
@@ -102,13 +104,13 @@ function asv_removeResults()
 	$('#asv_amazon2Results').remove();
 }
 
-function asv_request(keywords, itempage){
+function asv_request(keywords, searchindex, itempage){
 	$('#asv_amazon2Results').remove();
 	$('<div id="asv_amazon2Results"><fieldset><legend>Results</legend><div id="asv_amazon2ResultsData"><p >loading...</p></div></fieldset></div>').insertBefore("#write-status");
 	$("#asv_amazon2ResultsData").css("padding", "0px 0px 10px 0px");
 	
 	$.get('index.php',
-	 	{asv_amazon2_action: "1", asv_keywords: escape(keywords), asv_itempage: itempage },
+	 	{asv_amazon2_action: "1", asv_keywords: escape(keywords), asv_searchindex: escape(searchindex), asv_itempage: escape(itempage) },
 	   asv_parseResponse,
 	   "xml"
  );
@@ -123,12 +125,12 @@ function asv_cancelResults()
 function asv_parseResponse(xml)
 {	
 	var itemPage = $('ItemPage', xml).text();
-	
+	var searchindex = $('SearchIndex', xml).text();
 	var totalPages = $('TotalPages', xml).text();
 	var keywords = $('Keywords', xml).text();
 	var line ="";
 
-	line += asv_prevnext_link(keywords, itemPage, totalPages, "top");
+	line += asv_prevnext_link(keywords, searchindex, itemPage, totalPages, "top");
 
 	$(xml).find('Item').each(function(){
 		var title = $('Title',this).text();
@@ -141,7 +143,7 @@ function asv_parseResponse(xml)
 		line += '<p>' + amazonHTML + '<hr style="padding: 0px; margin: 0px§; height: 1px; color: #000;" />' + click + '</p>';
     });
 
-	line += asv_prevnext_link(keywords, itemPage, totalPages, "bottom");
+	line += asv_prevnext_link(keywords, searchindex, itemPage, totalPages, "bottom");
     
     $("#asv_amazon2ResultsData").before('<div id="asv_amazon2ResultsData"><p>' +line + '</p></div>').remove();
 	$("#asv_amazon2ResultsData").css("max-height", "500px");
@@ -149,7 +151,7 @@ function asv_parseResponse(xml)
 	$("#asv_amazon2ResultsData").css("padding", "0px 0px 10px 0px");
 }
 
-function asv_prevnext_link(keywords, itemPage, totalPages, loc)
+function asv_prevnext_link(keywords, searchindex, itemPage, totalPages, loc)
 {	
 	line ='';
 	if(parseInt(totalPages)>1){
@@ -160,11 +162,11 @@ function asv_prevnext_link(keywords, itemPage, totalPages, loc)
 		var text = '';
 		if(itemPage>1){
 			var pItemPage = itemPage - 1;
-			line += '<a href="#" onclick="asv_removeResults(); asv_request(\''+keywords + '\',\'' + pItemPage+'\');return false;">previous</a> | ';
+			line += '<a href="#" onclick="asv_removeResults(); asv_request(\''+keywords + '\',\'' + searchindex + '\',\''+ pItemPage+'\');return false;">previous</a> | ';
 		}
 		if(itemPage<totalPages){
 			var nItemPage = itemPage + 1;
-			line += '<a href="#" onclick="asv_removeResults(); asv_request(\''+keywords + '\',\'' + nItemPage+'\');return false;">next</a>';
+			line += '<a href="#" onclick="asv_removeResults(); asv_request(\''+keywords + '\',\'' + searchindex + '\',\''+ nItemPage+'\');return false;">next</a>';
 			
 		}
 		line+='</p>';
@@ -223,9 +225,9 @@ class asv_Amazon
 		//return "not implemented yet";
 	}
 	
-	function buildURL /* private */($keywords, $itemPage = "1")
+	function buildURL /* private */($keywords, $searchindex, $itemPage = "1")
 	{
-		$url = $this->baseURL."Service=".$this->service."&Operation=".$this->operation."&SubscriptionId=".$this->api_key."&SearchIndex=".$this->searchIndex."&Keywords=".$keywords."&ResponseGroup=".$this->responseGroup."&ItemPage=".$itemPage."&Version=".$this->version;
+		$url = $this->baseURL."Service=".$this->service."&Operation=".$this->operation."&SubscriptionId=".$this->api_key."&SearchIndex=".$searchindex."&Keywords=".$keywords."&ResponseGroup=".$this->responseGroup."&ItemPage=".$itemPage."&Version=".$this->version;
 		return $url;
 	}
 }
