@@ -40,8 +40,6 @@ _more help to come_
 // Designed around the need to include items from Amazon in your website
 if('admin' == @txpinterface) 
 {
-	//register_tab('extensions', 'txp_my_admin_page', "my page name"); 
-	//add_privs('txp_my_admin_page','1,2,3,4'); 
 	register_callback('asv_amazon2', 'article');
 }
 
@@ -53,13 +51,14 @@ if(gps('asv_amazon2_action') && gps('asv_keywords'))
 	exit;
 }
 
+
 function asv_amazon2 ($event, $step)
 {
 	$asv_searchIndex = array("Apparel", "Baby", "Blended", "Books", "Classical", "DVD", "DigitalMusic", "Electronics", "GourmetFood", "HealthPersonalCare", "Jewelry", "Kitchen", "Magazines", "Merchants", "Miscellaneous", "Music", "MusicTracks", "MusicalInstruments", "OfficeProducts", "OutdoorLiving", "PCHardware", "PetSupplies", "Photo", "Restaurants", "Software", "SportingGoods", "Tools", "Toys", "VHS", "Video", "VideoGames", "WirelessAccessories");
 
 	$line = "<h3 class=\"plain\">";
 	
-	$line .= "<a href=\"#asv_amazon2\" onclick=\"toggleDisplay('asv_amazon2'); return false;\">Amazon2</a>";
+	$line .= "<a href=\"#asv_amazon2\" onclick=\"toggleDisplay('asv_amazon2wrapper'); return false;\">Amazon2</a>";
 
 	$line .= "</h3>";
 
@@ -71,26 +70,32 @@ function asv_amazon2 ($event, $step)
 		fInput('submit','asv_Search','Search',"publish", '', 'asv_loadResults();return false;', '', '').
 		fInput('button','asv_Cancel','Cancel',"publish", '', 'asv_cancelResults();return false;', '', '').
 		"</fieldset></form>";
-	$line .= "<div id=\"asv_amazon2\" style=\"display: none;\">$form</div>";
+	$line .= "<div id=\"asv_amazon2wrapper\" style=\"display: none;\"><div id=\"asv_amazon2\">$form</div></div>";
 	
 	$line = asv_safeJS($line);
-
-
+	
+		
 	$js = <<<EOF
 <SCRIPT LANGUAGE="JavaScript" SRC="/textpattern/jquery.js">
 </SCRIPT>
 <script language="javascript" type="text/javascript">
 <!--
- 
+
+//------------------------------------------------------------- 
+
  $(document).ready(function() {
 	$("$line").insertBefore("#write-status");
    });
-   
+
+//-------------------------------------------------------------  
+
 function asv_onClick(elem)
 {
 	var dest = document.getElementById('body');
 	dest.value += " " + elem;
 }
+
+//-------------------------------------------------------------
 
 function asv_loadResults()
 {
@@ -99,28 +104,29 @@ function asv_loadResults()
 	asv_request(keywords, searchindex, '1');
 }
 
-function asv_removeResults()
-{
-	$('#asv_amazon2Results').remove();
-}
+//-------------------------------------------------------------
 
 function asv_request(keywords, searchindex, itempage){
+
 	$('#asv_amazon2Results').remove();
-	$('<div id="asv_amazon2Results"><fieldset><legend>Results</legend><div id="asv_amazon2ResultsData"><p >loading...</p></div></fieldset></div>').insertBefore("#write-status");
+	$('<div id="asv_amazon2Results"><fieldset id="asv_amazon2resultsFieldset"><legend>Results</legend><div id="asv_amazon2ResultsData"><p >loading...</p></div></fieldset></div>').appendTo("#asv_amazon2wrapper");
 	$("#asv_amazon2ResultsData").css("padding", "0px 0px 10px 0px");
 	
 	$.get('index.php',
-	 	{asv_amazon2_action: "1", asv_keywords: escape(keywords), asv_searchindex: escape(searchindex), asv_itempage: escape(itempage) },
+	 	{asv_amazon2_action: "1", asv_keywords: escape(keywords), asv_searchindex: escape(searchindex), asv_itempage: itempage },
 	   asv_parseResponse,
 	   "xml"
- );
-
+	 );
 }
+
+//-------------------------------------------------------------
 
 function asv_cancelResults()
 {
 	$('#asv_amazon2Results').remove();
 }
+
+//-------------------------------------------------------------
 
 function asv_parseResponse(xml)
 {	
@@ -140,12 +146,13 @@ function asv_parseResponse(xml)
 		var amazonHTML = '<a href="'+url+'"><img src="'+imageURL+'" style="display: block;margin-left: auto;margin-right: auto;"/><span style="text-align: center">' + title + '</span></a>' ;
 		
 		var click ='<a href="#" onclick="asv_onClick(\'' + title+ '\');return false;">add</a>';
-		line += '<p>' + amazonHTML + '<hr style="padding: 0px; margin: 0px§; height: 1px; color: #000;" />' + click + '</p>';
+		line += '<p>' + amazonHTML + '<hr style="padding: 0px; margin: 0px; height: 1px; color: #000;" />' + click + '</p>';
     });
 
 	line += asv_prevnext_link(keywords, searchindex, itemPage, totalPages, "bottom");
     
-    $("#asv_amazon2ResultsData").before('<div id="asv_amazon2ResultsData"><p>' +line + '</p></div>').remove();
+    $("#asv_amazon2ResultsData").remove();
+    $('<div id="asv_amazon2ResultsData">' + line + '</div>').appendTo("#asv_amazon2resultsFieldset");
 	$("#asv_amazon2ResultsData").css("max-height", "500px");
 	$("#asv_amazon2ResultsData").css("overflow", "auto");
 	$("#asv_amazon2ResultsData").css("padding", "0px 0px 10px 0px");
@@ -162,11 +169,11 @@ function asv_prevnext_link(keywords, searchindex, itemPage, totalPages, loc)
 		var text = '';
 		if(itemPage>1){
 			var pItemPage = itemPage - 1;
-			line += '<a href="#" onclick="asv_removeResults(); asv_request(\''+keywords + '\',\'' + searchindex + '\',\''+ pItemPage+'\');return false;">previous</a> | ';
+			line += '<a href="#" onclick="asv_cancelResults(); asv_request(\''+keywords + '\',\'' + searchindex + '\',\''+ pItemPage+'\');return false;">previous</a> | ';
 		}
 		if(itemPage<totalPages){
 			var nItemPage = itemPage + 1;
-			line += '<a href="#" onclick="asv_removeResults(); asv_request(\''+keywords + '\',\'' + searchindex + '\',\''+ nItemPage+'\');return false;">next</a>';
+			line += '<a href="#" onclick="asv_cancelResults(); asv_request(\''+keywords + '\',\'' + searchindex + '\',\''+ nItemPage+'\');return false;">next</a>';
 			
 		}
 		line+='</p>';
@@ -174,21 +181,17 @@ function asv_prevnext_link(keywords, searchindex, itemPage, totalPages, loc)
 	}
 	return line;
 }
-
-
 // -->
 </script>
 EOF;
-
-		echo $js;
-
+	echo $js;
 }
 
 function asv_safeJS($line)
 {
 	return str_replace("\n", "", addslashes($line));
 }
-
+	
 class asv_Amazon
 {
 	var $api_key = "0Y8F1YV1N2YSGJ1MC202";
@@ -207,9 +210,9 @@ class asv_Amazon
 		
 	}
 	
-	function request($keywords, $itemPage = "1")
+	function request($keywords, $searchindex, $itemPage = "1")
 	{
-		$url = $this->buildURL(doSlash($keywords), doSlash($itemPage));
+		$url = $this->buildURL(doSlash($keywords), doSlash($searchindex), doSlash($itemPage));
 		// create a new curl resource
 		$ch = curl_init();
 
@@ -231,6 +234,8 @@ class asv_Amazon
 		return $url;
 	}
 }
+
+
 # --- END PLUGIN CODE ---
 
 ?>
