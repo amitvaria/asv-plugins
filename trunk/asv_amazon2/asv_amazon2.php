@@ -10,7 +10,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'asv_amazon2';
 
-$plugin['version'] = '2.0';
+$plugin['version'] = '1.0rc1';
 $plugin['author'] = 'Amit Varia';
 $plugin['author_uri'] = 'http://www.amitvaria.com/';
 $plugin['description'] = 'Add Amazon items to your TXP article';
@@ -27,13 +27,13 @@ $plugin['type'] = 1;
 if (0) {
 ?>
 # --- BEGIN PLUGIN HELP ---
-h1. asv_amazon
+h1. asv_amazon2
 
-h2. version 1.0
+h2. version 1.0rc1
 
 h3. What's new?
 
-A long time ago, I created a plugin called asv_amazon, which let you display products from Amazon on your site. It worked, but inserting the product required you to go to Amazon, copy the ASIN number, and paste into the TextPattern. What a hassle! Well I finally got around to writing the next version of asv_amazon. -I've called it asv_amazon2 since it is completely written and works in a whole new way.- I've written it to be backwards compatbile with asv_amazon, so you should be to move easily to the new version.
+A long time ago, I created a plugin called asv_amazon, which let you display products from Amazon on your site. It worked, but inserting the product required you to go to Amazon, copy the ASIN number, and paste into the TextPattern. What a hassle! Well I finally got around to writing the next version of asv_amazon. I've called it asv_amazon2 since it is completely written and works in a whole new way.
 
 h3. How does it work?
 
@@ -41,7 +41,7 @@ Simple - when writing an article just click on the "Amazon" link in the top righ
 
 h3. Creating a form
 
-With version 2.0, you will have to have forms to generate the layout of the product on your page. When creating a new 'misc' form you can use the following values:
+With version 1.0, you will have to have forms to generate the layout of the product on your page. When creating a new 'misc' form you can use the following values:
 
 asv_url
 asv_sImageUrl
@@ -246,7 +246,7 @@ function asv_amazon_backend ($event, $step)
 	
 	$rs = safe_column('name', 'txp_form', "type = 'misc'");
 
-	$forms = '<p><label for="asv_amazon2_tagtype">Tag</label>: '.selectInput('asv_amazon2_tagtype', array('form', 'form (cached)', 'hardcode'), array('form', 'form (cached)', 'hardcode'), false, '', 'asv_amazon2_tagtype').'</p>'; 
+	$forms = '<p><label for="asv_amazon2_tagtype">Type</label>: '.selectInput('asv_amazon2_tagtype', array('form', 'form (cached)', 'hardcode'), array('form', 'form (cached)', 'hardcode'), false, '', 'asv_amazon2_tagtype').'</p>'; 
 	
 	$forms .= '<p><label for="asv_amazon2_form">Form</label>: ';
 	
