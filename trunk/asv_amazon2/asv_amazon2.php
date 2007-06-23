@@ -10,7 +10,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'asv_amazon2';
 
-$plugin['version'] = '0.8';
+$plugin['version'] = '2.0';
 $plugin['author'] = 'Amit Varia';
 $plugin['author_uri'] = 'http://www.amitvaria.com/';
 $plugin['description'] = 'Add Amazon items to your TXP article';
@@ -27,28 +27,36 @@ $plugin['type'] = 1;
 if (0) {
 ?>
 # --- BEGIN PLUGIN HELP ---
-h1. asv_amazon2
+h1. asv_amazon
 
-h2. version 0.2
+h2. version 1.0
 
 h3. What's new?
 
-A long time ago, I created a plugin called asv_amazon, which let you display products from Amazon on your site. It worked, but inserting the product required you to go to Amazon, copy the ASIN number, and paste into the TextPattern. What a hassle! Well I finally got around to writing the next version of asv_amazon. I've called it asv_amazon2 since it is completely written and works in a whole new way.
+A long time ago, I created a plugin called asv_amazon, which let you display products from Amazon on your site. It worked, but inserting the product required you to go to Amazon, copy the ASIN number, and paste into the TextPattern. What a hassle! Well I finally got around to writing the next version of asv_amazon. -I've called it asv_amazon2 since it is completely written and works in a whole new way.- I've written it to be backwards compatbile with asv_amazon, so you should be to move easily to the new version.
 
 h3. How does it work?
 
-Simple - when writing an article just click on the "Amazon2" link in the top right column. You can search and add products to your post by clicking the "add" button next to each item.
+Simple - when writing an article just click on the "Amazon" link in the top right column. You can search and add products to your post by clicking the "add" button next to each item.
 
 h3. Creating a form
 
-With version 0.2, you will have to have forms to generate the layout of the product on your page. When creating a new 'misc' form you can use the following values:
+With version 2.0, you will have to have forms to generate the layout of the product on your page. When creating a new 'misc' form you can use the following values:
 
-asv_amazon2_url
-asv_amazon2_sImageUrl
-asv_amazon2_mImageUrl
-asv_amazon2_lImageUrl
-asv_amazon2_asin
-asv_amazon2_title
+asv_url
+asv_sImageUrl
+asv_mImageUrl
+asv_lImageUrl
+asv_asin
+asv_title
+
+OR you can use the depecrated literals from the original version
+
+asv_DetailPageURL
+asv_SmallImageURL
+asv_MediumImageURL
+asv_LargeImageURL
+asv_Title
 
 asv_amazon2 will just replace these literals with their product counterpart, so:
 
@@ -72,8 +80,14 @@ which will display like this:
 
 if('admin' == @txpinterface) 
 {
-	register_callback('asv_amazon2', 'article');
-	register_callback('asv_amazon2', 'page');
+	add_privs('asv_amazon2','1,2,3,4'); // Allow only userlevels 1,2,3,4 acess to this plugin.
+	register_tab('extensions', 'asv_amazon2', "Amazon Settings"); 
+	register_callback("asv_amazon2", "asv_amazon2"); 
+	
+	register_callback('asv_amazon_backend', 'article');
+	register_callback('asv_amazon_backend', 'page');
+	register_callback('asv_amazon_backend', 'form');
+	
 }
 
 //-------------------------------------------------------------
@@ -89,6 +103,35 @@ if(gps('asv_amazon2_action') && gps('asv_keywords'))
 								"Operation" => "ItemSearch"
 							));
 	exit;
+}
+
+//-------------------------------------------------------------
+
+function asv_amazon2($event, $step)
+{
+	pagetop('Amazon Cache Settings');
+	
+	$asv_amazon_cachedir = '';
+	$asv_amazon_cachedurl = '';
+	
+	
+	if($step == 'save')
+	{
+		set_pref('asv_amazon_cachedir', gps('asv_amazon_cachedir'),'','');
+		set_pref('asv_amazon_cacheurl', gps('asv_amazon_cacheurl'),'','');
+	}
+	
+	extract(get_prefs());
+	
+	echo startTable('list').tr(td(form( 
+				graf(tag('Path to cache: ', 'label').
+					fInput('text', 'asv_amazon_cachedir', $asv_amazon_cachedir, 'edit', '', '', 30)).
+				graf(tag('URL to cache: ', 'label').
+					fInput('text', 'asv_amazon_cacheurl', $asv_amazon_cacheurl, 'edit', '', '', 30)).
+				eInput('asv_amazon2').
+				sInput('save').
+		 		graf(fInput('submit', '', gTxt('Save'), ''))
+				))).endTable();
 }
 
 //-------------------------------------------------------------
@@ -130,12 +173,18 @@ function asv_amazon2_display($atts,$thing)
 	}
 	if($thing)
 	{
-		$thing = str_replace('asv_amazon2_url', $url, $thing);
-		$thing = str_replace('asv_amazon2_sImageUrl', $smallimage, $thing);
-		$thing = str_replace('asv_amazon2_mImageUrl', $mediumimage, $thing);
-		$thing = str_replace('asv_amazon2_lImageUrl', $largeimage, $thing);
-		$thing = str_replace('asv_amazon2_asin', $asin, $thing);
-		$thing = str_replace('asv_amazon2_title', $title, $thing);
+		$thing = str_replace('asv_url', $url, $thing);
+		$thing = str_replace('asv_sImageUrl', $smallimage, $thing);
+		$thing = str_replace('asv_mImageUrl', $mediumimage, $thing);
+		$thing = str_replace('asv_lImageUrl', $largeimage, $thing);
+		$thing = str_replace('asv_asin', $asin, $thing);
+		$thing = str_replace('asv_title', $title, $thing);
+		
+		$thing = str_replace('asv_DetailPageURL', $url, $thing);
+		$thing = str_replace('asv_SmallImageURL', $smallimage, $thing);
+		$thing = str_replace('asv_MediumImageURL', $mediumimage, $thing);
+		$thing = str_replace('asv_LargeImageURL', $largeimage, $thing);
+		$thing = str_replace('asv_Title', $title, $thing);
 	}
 	else
 	{
@@ -147,7 +196,7 @@ function asv_amazon2_display($atts,$thing)
 
 //-------------------------------------------------------------
 
-function asv_amazon2 ($event, $step)
+function asv_amazon_backend ($event, $step)
 {
 	$asv_amazon2_location = '';
 	$asv_amazon2_textarea= '';
@@ -161,21 +210,25 @@ function asv_amazon2 ($event, $step)
 			$asv_amazon2_location = "misc-tags";
 			$asv_amazon2_textarea = "html";
 			break;
+		case "form":
+			$asv_amazon2_location = "article-tags";
+			$asv_amazon2_textarea = "form";
+			break;
 	}
 	
 	$asv_searchIndex = array("Apparel", "Baby", "Blended", "Books", "Classical", "DVD", "DigitalMusic", "Electronics", "GourmetFood", "HealthPersonalCare", "Jewelry", "Kitchen", "Magazines", "Merchants", "Miscellaneous", "Music", "MusicTracks", "MusicalInstruments", "OfficeProducts", "OutdoorLiving", "PCHardware", "PetSupplies", "Photo", "Restaurants", "Software", "SportingGoods", "Tools", "Toys", "VHS", "Video", "VideoGames", "WirelessAccessories");
 
 	$line = "<h3 class=\"plain\">";
 	
-	$line .= "<a href=\"#asv_amazon2\" onclick=\"$('#asv_amazon2wrapper').slideToggle('slow'); return false;\">Amazon2</a>";
+	$line .= "<a href=\"#asv_amazon2\" onclick=\"$('#asv_amazon2wrapper').slideToggle('slow'); return false;\">Amazon</a>";
 
 	$line .= "</h3>";
 
-	$form = "<form onSubmit=\"asv_loadResults(); return false;\"><h3>Amazon2</h3><p id=\"asv_amazon2_close\"><a href=\"#\" onclick=\"$('#asv_amazon2wrapper').slideToggle('slow'); return false;\">close</a></p><fieldset><legend>Search</legend>".
+	$form = "<form onSubmit=\"asv_loadResults(); return false;\"><h3>Amazon</h3><p id=\"asv_amazon2_close\"><a href=\"#\" onclick=\"$('#asv_amazon2wrapper').slideToggle('slow'); return false;\">close</a></p><fieldset><legend>Search</legend>".
 	
 		graf("<label for=\"asv_SearchIndex\">Choose a category</label><br />".
 		
-			selectInput('asv_SearchIndex', $asv_searchIndex, $asv_searchIndex, true,'','asv_SearchIndex')).
+			selectInput('asv_SearchIndex', $asv_searchIndex, $asv_searchIndex, false,'','asv_SearchIndex')).
 				
 		graf("<label for=\"asv_Keywords\">Keywords</label><br />".
 		
@@ -193,20 +246,20 @@ function asv_amazon2 ($event, $step)
 	
 	$rs = safe_column('name', 'txp_form', "type = 'misc'");
 
-	$forms = '<select id="asv_amazon2_form"><option /></select>';
+	$forms = '<p><label for="asv_amazon2_tagtype">Tag</label>: '.selectInput('asv_amazon2_tagtype', array('form', 'form (cached)', 'hardcode'), array('form', 'form (cached)', 'hardcode'), false, '', 'asv_amazon2_tagtype').'</p>'; 
+	
+	$forms .= '<p><label for="asv_amazon2_form">Form</label>: ';
 	
 	if ($rs)
 	{
-		$forms = selectInput('asv_amazon2_form', $rs, $form, true, '', 'asv_amazon2_form');
+		$forms .= selectInput('asv_amazon2_form', $rs, $form, true, '', 'asv_amazon2_form').'</p>';
+	}
+	else 
+	{
+		$forms .= '<select id="asv_amazon2_form"><option /></select></p>';
 	}
 	$asv_amazon2_imagesize = array('small', 'medium', 'large');
 	
-	$forms .= graf('OR'.
-				graf('Custom - NOT FUNCTIONAL').
-				 graf(selectInput('asv_amazon2_custom_imagesize', $asv_amazon2_imagesize, $asv_amazon2_imagesize, true, '', 'asv_amazon2_custom_imagesize')).
-				 graf(checkbox('asv_amazon2_custom_includetitle', 'asv_amazon2_custom_includetitle', '1', '', 'asv_amazon2_custom_includetitle').'<label for="asv_amazon2_custom_includetitle">Include title</label>').
-				 graf(checkbox('asv_amazon2_custom_includelink', 'asv_amazon2_custom_includelink', '1', '', 'asv_amazon2_custom_includelink').'<label for="asv_amazon2_custom_includelink">Include link</label')
-		);
 	$forms = asv_safeJS($forms);
 	
 	$js = <<<EOF
@@ -225,10 +278,10 @@ function asv_amazon2 ($event, $step)
 	$("#asv_amazon2wrapper").css("top", "80px");
 	$("#asv_amazon2wrapper").css("right", "0px");
 	$("#asv_amazon2wrapper").css("width", "200px");
-	$("#asv_amazon2wrapper").css("background-color", "#ffe");
+	$("#asv_amazon2wrapper").css("background-color", "#ffffcc");
 	$("#asv_amazon2wrapper").css("padding", "20px");
-	$("#asv_amazon2wrapper > h3").css("float", "left");
-	$("#asv_amazon2wrapper > h3").css("display", "inline");
+	$("#asv_amazon2wrapper h3").css("float", "left");
+	$("#asv_amazon2wrapper h3").css("display", "inline");
 	$("#asv_amazon2_close").css("text-align", "right");
    });
 
@@ -244,7 +297,7 @@ function asv_loadResults()
 //-------------------------------------------------------------
 
 function asv_request(keywords, searchindex, itempage){
-	$('#asv_amazon2form').html('<fieldset><legend>Choose Form</legend><form>$forms</form>');
+	$('#asv_amazon2form').html('<fieldset><legend>Options</legend><form>$forms</form>');
 	$('#asv_amazon2Results').html('<fieldset><legend>Results</legend><div id="asv_amazon2ResultsData"><p >loading...</p></div></fieldset>');
 	$("#asv_amazon2ResultsData").css("padding", "0px 0px 10px 0px");
 	$('#asv_amazon2form').show('slow');
@@ -314,25 +367,41 @@ $.fn.appendVal = function(txt) {
 
 function asv_amazon2_addtoBody(asin)
 {
-	var elem = $('#asv_amazon2_'+asin);
-	
 	var title = $('input:hidden[@name=asv_amazon2_title]').val();
 	var sImageURL = $('input:hidden[@name=asv_amazon2_sImageURL]').val();
 	var mImageURL = $('input:hidden[@name=asv_amazon2_mImageURL]').val();
 	var lImageURL = $('input:hidden[@name=asv_amazon2_lImageURL]').val();
 	var url = $('input:hidden[@name=asv_amazon2_url]').val();
+	var asin = $('input:hidden[@name=asv_amazon2_asin]').val();
 	var form = $("#asv_amazon2_form option[@selected]").text();
 	
-	var asv_tag = '<txp:asv_amazon2_display ';
-	asv_tag += (title)? 'title="'+title+'" ' : "";
-	asv_tag += (sImageURL)? 'smallimage="'+sImageURL+'" ' : "";
-	asv_tag += (mImageURL)? 'mediumimage="'+mImageURL+'" ' : "";
-	asv_tag += (lImageURL)? 'largeimage="'+lImageURL+'" ' : "";
-	asv_tag += (url)? 'url="'+url+'" ' : "";
-	asv_tag += (form)? 'form="'+form+'" ' : "";
-	asv_tag += ' />';
-	
-	$('#$asv_amazon2_textarea').appendVal(asv_tag);
+	switch($("#asv_amazon2_tagtype option[@selected]").text())
+	{
+		case "hardcode":
+			var asv_tag = '<txp:asv_amazon2_display ';
+			asv_tag += (title)? 'title="'+title+'" ' : "";
+			asv_tag += (sImageURL)? 'smallimage="'+sImageURL+'" ' : "";
+			asv_tag += (mImageURL)? 'mediumimage="'+mImageURL+'" ' : "";
+			asv_tag += (lImageURL)? 'largeimage="'+lImageURL+'" ' : "";
+			asv_tag += (url)? 'url="'+url+'" ' : "";
+			asv_tag += (form)? 'form="'+form+'" ' : "";
+			asv_tag += ' />';
+			break;
+		case "form":
+			var asv_tag = '<txp:asv_amazon2_display ';
+			asv_tag += (asin)? 'asin="'+asin+'" ' : "";
+			asv_tag += (form)? 'form="'+form+'" ' : "";
+			asv_tag += ' />';
+			break;
+		case "form (cached)":
+			var asv_tag = '<txp:asv_amazon2_display ';
+			asv_tag += (asin)? 'asin="'+asin+'" ' : "";
+			asv_tag += (form)? 'form="'+form+'" ' : "";
+			asv_tag += 'cached="y"';
+			asv_tag += ' />';
+			break;
+	}
+	$('#$asv_amazon2_textarea').appendVal(asv_tag);	
 }
 
 //-------------------------------------------------------------  
@@ -346,8 +415,8 @@ function asv_amazon2_addtoBody_Response(response)
 
 function asv_cancelResults()
 {
-	$('#asv_amazon2Results').hide('slow');
-	$('#asv_amazon2form').hide('slow');
+	$('#asv_amazon2Results').slideUp('slow');
+	$('#asv_amazon2form').slideUp('slow');
 }
 
 //-------------------------------------------------------------
@@ -416,8 +485,6 @@ class asv_Amazon
 	var $searchIndex = "Blended";
 	var $responseGroup = "Images,Small";
 	var $version = "2005-03-23";
-	var $requestedItems;
-	var $response ="";
 	
 	var $locale;
 	
@@ -453,9 +520,7 @@ class asv_Amazon
 	//-------------------------------------------------------------
 	
 	function requestItem($requestItems, $docache)
-	{
-		global $tempdir;
-		
+	{		
 		extract(get_prefs());
 
 		
@@ -480,9 +545,7 @@ class asv_Amazon
 		{
 			if($cacheurl != $url)
 			{
-				$fp = fopen($cache_localpath, 'w');
-				fwrite($fp, $this->response);
-				fclose($fp);
+				$this->cache($cache_localpath, $data);
 			}
 			
 			foreach($contents as $key=>$value)
@@ -510,59 +573,11 @@ class asv_Amazon
 	
 	//-------------------------------------------------------------
 	
-	function fetchURL($url)
-	{
-		// create a new curl resource
-		$ch = curl_init();
-
-		// set URL and other appropriate options
-		curl_setopt($ch, CURLOPT_URL, $url);
-		
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
-
-		// grab URL and pass it to the browser
-		$data = curl_exec($ch);
-
-		// close curl resource, and free up system resources
-		curl_close($ch);
-		
-		return $data;
-	}
-
-	//-------------------------------------------------------------
-	
 	function requestItems($requestItems)
 	{		
 		$url = $this->buildURL($requestItems);
 		
 		return $this->fetchURL($url);
-	}
-	
-	//-------------------------------------------------------------
-	
-	function buildURL /* private */($requestItems)
-	{
-		$url = $this->baseURL.
-				"Service=".$this->service.
-				"&SubscriptionId=".$this->api_key.
-				"&Version=".$this->version.
-				"&ResponseGroup=".$this->responseGroup;
-				
-		$this->requestedItems = $requestItems;
-		
-		foreach($requestItems as $key=>$value)
-		{
-				$url .= '&'.$key.'='.$value;
-		}
-		
-		return $url;
-	}
-	
-	//-------------------------------------------------------------
-	
-	function getResponse()
-	{
-		return $this->response;
 	}
 	
 	//-------------------------------------------------------------
@@ -573,7 +588,7 @@ class asv_Amazon
 		extract(get_prefs());
 		
 		$parser = xml_parser_create();
-		$amazon_parser = &new AmazonParser('US', $this->requestedItems['asin'], 'none', '');
+		$amazon_parser = &new AmazonParser();
 		xml_set_object($parser, $amazon_parser);
 		xml_parser_set_option($parser, XML_OPTION_CASE_FOLDING, false);
 		xml_set_element_handler($parser, "startElement", "endElement");
@@ -600,28 +615,53 @@ class asv_Amazon
 		fclose($fp);
 	}
 	
-}
-//-------------------------------------------------------------
-//-------------------------------------------------------------
-// original asv_amazon
-//-------------------------------------------------------------
-//-------------------------------------------------------------
-
-
-function getData($source='', $dest='', $data=''){
-	echo 'copying '.$source;
-	if($data=='')
+	//-------------------------------------------------------------
+	
+	function fetchURL($url)
 	{
+		// create a new curl resource
 		$ch = curl_init();
-		curl_setopt($ch, CURLOPT_URL, $source);
+
+		// set URL and other appropriate options
+		curl_setopt($ch, CURLOPT_URL, $url);
+		
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
-		$data=curl_exec ($ch);
-		curl_close ($ch);
-		echo $data;
+
+		// grab URL and pass it to the browser
+		$data = curl_exec($ch);
+
+		// close curl resource, and free up system resources
+		curl_close($ch);
+		
+		return $data;
 	}
-	$fp=fopen($dest, 'w');
-	fwrite($fp, $data);
-	fclose($fp);
+		
+	//-------------------------------------------------------------
+	
+	function buildURL /* private */($requestItems)
+	{
+		$url = $this->baseURL.
+				"Service=".$this->service.
+				"&SubscriptionId=".$this->api_key.
+				"&Version=".$this->version.
+				"&ResponseGroup=".$this->responseGroup;
+				
+		$this->requestedItems = $requestItems;
+		
+		foreach($requestItems as $key=>$value)
+		{
+				$url .= '&'.$key.'='.$value;
+		}
+		
+		return $url;
+	}
+
+	//-------------------------------------------------------------
+	
+	function getResponse()
+	{
+		return $this->response;
+	}
 }
 
 //-------------------------------------------------------------
@@ -632,23 +672,11 @@ class AmazonParser
 /* This class is a helper to the asv_amazon function. The purpose of this class is to parse the xml data and return the information to the asv_amazon function.*/
    var $asv_contents;	//hold all the data to return
    var $asv_flag;	//hold the current tag name
-   var $asv_asin;			//hold the ASIN of the product
-   var $asv_locale;		//hold the locale of the product
-   var $asv_cacheimg;	//whether or not to cache the image
-   var $asv_tmp_site;
-   var $asv_tmp_folder;
 
    //-------------------------------------------------------------
 
-   function AmazonParser($locale, $asin, $cacheimg, $tmp_folder)
+   function AmazonParser()
    {
-	   global $siteurl;
-	   global $tempdir;
-	   $this->asv_asin = $asin;
-	   $this->asv_locale = $locale;
-	   $this->asv_cacheimg = $cacheimg;
-	   $this->asv_tmp_site= "http://$siteurl/textpattern/tmp";
-	   $this->asv_tmp_folder = $tempdir;
    }
    
    //-------------------------------------------------------------
@@ -656,17 +684,9 @@ class AmazonParser
    function startElement($parser, $tagName, $attrs){
 	   switch ($tagName) {
 		   case "DetailPageURL":
-			   $this->asv_flag = $tagName;
-			   break;
 		   case "SmallImage":
-			   $this->asv_flag = $tagName;
-			   break;
 		   case "MediumImage":
-			   $this->asv_flag = $tagName;
-			   break;
 		   case "LargeImage":
-			   $this->asv_flag = $tagName;
-			   break;
 		   case "ItemAttributes":
 			   $this->asv_flag = $tagName;
 			   break;
@@ -695,21 +715,9 @@ class AmazonParser
    function characterData($parser, $data){
 	   switch ($this->asv_flag) {
 		   case "DetailPageURL":
-			   $this->asv_contents["asv_".$this->asv_flag] = $data;
-			   $this->asv_flag = '';
-			   break;
 		   case "SmallImageURL":
-			   $this->asv_contents["asv_".$this->asv_flag] = $data;
-			   $this->asv_flag = '';
-			   break;
 		   case "MediumImageURL":
-			   $this->asv_contents["asv_".$this->asv_flag] = $data;
-			   $this->asv_flag = '';
-			   break;
 		   case "LargeImageURL":
-			   $this->asv_contents["asv_".$this->asv_flag] = $data;
-			   $this->asv_flag = '';
-			   break;
 		   case "Title":
 			   $this->asv_contents["asv_".$this->asv_flag] = $data;
 			   $this->asv_flag = '';
@@ -719,158 +727,10 @@ class AmazonParser
    
    //-------------------------------------------------------------
 
-   function getDetailPageURL(){
-	   return $this->asv_contents["asv_DetailPageURL"];
-   }
-   
-   //-------------------------------------------------------------
-
-   function getSmallImageURL(){
-	   return $this->asv_contents['asv_SmallImageURL'];
-   }
-   
-   //-------------------------------------------------------------
-
-   function getMediumImageURL(){
-	   return $this->asv_contents["asv_MediumImageURL"];
-   }
-   
-   //-------------------------------------------------------------
-
-   function getLargeImageURL(){
-	   return $this->asv_contents["asv_LargeImageURL"];
-   }
-
-   //-------------------------------------------------------------
-   
-   function getTitle(){
-	   return $this->asv_contents["asv_Title"];
-   }
-
-   //-------------------------------------------------------------
-
    function getContentsArray(){
 	   return $this->asv_contents;
    }
 
-}
-	
-//-------------------------------------------------------------
-
-function asv_amazon($att, $thing=''){
-/* asv_amazon is the main function for the plugin. When the plugin tags are inserted into the page, this function will be called.
-	$att - an array that holds the following values: $asin, [$locale, $cache, $cacheimg]
-	$thing - a string that holds the string in between the open an close tags of this plugin
-*/
-	global $tempdir;
-	global $siteurl;
-	//Setting defaults! - Note any settings in the tags will override these settings
-	$locale="us"; // us/de/fr/jp/ca/uk
-	$cacheimg="none"; // none/small/medium/large
-	$cache="none"; // true/false
-	$tmp_folder = $tempdir;
-	$path = "http://$siteurl/textpattern/tmp";
-
-	//Make sure that the array $att is a proper array before extracting all the contents into variable names of their keys
-	
-	is_array($att) ? extract($att) : print("asv_amazon: Please refer to the manual to properly define the asv_amazon tag.");
-	
-	//An ASIN must be provided for this plugin
-	
-	if(!isset($asin)) 
-	{
-		print("You must specify the ASIN (Amazon Standard Item Number) for the product that you want to display. The ASIN is a 10 digit number found in the URL of the product detail page.");
-	}
-	
-	//cacheimg should be either small, medium, or large. By default cacheimg is set to none (this means not to cache the image)
-	
-	if(($cache == "true") && file_exists("$tmp_folder/$locale-$asin.xml") && (time() - (fileatime("$tmp_folder/$locale-$asin.xml")) < 8640000))
-	{
-		$url = "$tmp_folder/$locale-$asin.xml";
-	}
-
-	else	//Otherwise go grab the xml file
-	{
-		$base = '';
-		
-		//Set the base url to the appropriate locale
-		switch ($locale) {
-			case "us":
-				$base = 'http://webservices.amazon.com/onca/xml';
-				break;
-			case "uk":
-				$base = 'http://webservices.amazon.co.uk/onca/xml';
-				break;
-			case "de":
-				$base = 'http://webservices.amazon.de/onca/xml';
-				break;
-			case "jp":
-				$base = 'http://webservices.amazon.co.jp/onca/xml';
-				break;
-			case "fr":
-				$base = 'http://webservices.amazon.fr/onca/xml';
-				break;
-			case "ca":
-				$base = 'http://webservices.amazon.ca/onca/xml';
-				break;
-		}
-	
-		$query_string = '';
-		$params = array(
-			'Service' => 'AWSECommerceService',
-			'SubscriptionId' => '0DZWD9BKQ6DHPH4XA2G2',
-			'Operation' => 'ItemLookup',
-			'ItemId' => $asin,
-			'ResponseGroup' => 'Medium',
-		);
-		foreach ($params as $key => $value) 
-		{
-			$query_string .= "$key=" . urlencode($value) . "&";
-		}
-		
-		//Build the url
-		$url = "$base?$query_string";
-	}
-
-	//Set up the parser - to understand this I suggest the following tutorial: http://www.sitepoint.com/article/php-xml-parsing-rss-1-0
-	$parser = xml_parser_create();
-	$amazon_parser = &new AmazonParser($locale, $asin, $cacheimg, $tmp_folder);
-	xml_set_object($parser, $amazon_parser);
-	xml_parser_set_option($parser, XML_OPTION_CASE_FOLDING, false);
-	xml_set_element_handler($parser, "startElement", "endElement");
-	xml_set_character_data_handler($parser, "characterData");
-
-	$ch = curl_init();
-	curl_setopt($ch, CURLOPT_URL, $url);
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
-	$data=curl_exec ($ch);
-	curl_close ($ch);
-
-	if (!xml_parse($parser, $data)) 
-	{
-		print(sprintf("XML error: %s at line %d",
-		xml_error_string(xml_get_error_code($parser)),
-		xml_get_current_line_number($parser)));
-	}
-
-	xml_parser_free($parser);
-
-	//Grab the contents from the AmazonParser Class
-	$asv_contents = $amazon_parser->getContentsArray();
-
-	//Properly synthesize the HTML to return
-	if($thing)
-	{
-		foreach($asv_contents as $key=>$value){
-			$thing = str_replace($key, $value, 	$thing);
-		}
-	}
-	else
-	{
-		$thing = "<a href=\"".$asv_contents['asv_DetailPageURL']."\"><img src=\"".$asv_contents['asv_SmallImageURL']."\" /><br />".$asv_contents['asv_Title']."</a><br />";
-	}
-
-	return $thing;
 }
 # --- END PLUGIN CODE ---
 ?>
