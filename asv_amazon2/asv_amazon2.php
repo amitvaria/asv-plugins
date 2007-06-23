@@ -340,7 +340,7 @@ function asv_parseResponse(xml)
 					'<input type="hidden" name="asv_amazon2_lImageURL" value ="'+lImageURL+'" />' +
 					'<input type="hidden" name="asv_amazon2_url" value ="'+url+'" />' +
 					'<input type="hidden" name="asv_amazon2_asin" value ="'+asin+'" />' +
-					'<input type="button" style="float:right" onclick="asv_amazon2_addtoBody(\''+asin+'\')" class="publish" value="add" />'
+					'<input type="button" id="asv_amazon2_add_'+asin+'" style="float:right" onclick="asv_amazon2_addtoBody(\''+asin+'\')" class="publish" value="add" />'
 				   '</form>';
 		
 		line += '<p>' + form + amazonHTML  + '</p>';
@@ -401,7 +401,9 @@ function asv_amazon2_addtoBody(asin)
 			asv_tag += ' />';
 			break;
 	}
-	$('#$asv_amazon2_textarea').appendVal(asv_tag);	
+	//edInsertContent(document.getElementById('$asv_amazon2_textarea'), asv_tag);
+	
+	$('#$asv_amazon2_textarea').insertAtCaret(asv_tag);	
 }
 
 //-------------------------------------------------------------  
@@ -459,6 +461,42 @@ function asv_prevnext_link(keywords, searchindex, itemPage, totalPages, loc)
 }
 
 //-------------------------------------------------------------
+
+/**
+ * Insert content at caret position (converted to jquery function)
+ * @link http://alexking.org/blog/2003/06/02/inserting-at-the-cursor-using-javascript
+ */
+$.fn.insertAtCaret = function (myValue) {
+	return this.each(function(){
+		//IE support
+		if (document.selection) {
+			this.focus();
+			sel = document.selection.createRange();
+			sel.text = myValue;
+			this.focus();
+		}
+		//MOZILLA/NETSCAPE support
+		else if (this.selectionStart || this.selectionStart == '0') {
+			var startPos = this.selectionStart;
+			var endPos = this.selectionEnd;
+			var scrollTop = this.scrollTop;
+			this.value = this.value.substring(0, startPos)
+			              + myValue
+	                      + this.value.substring(endPos, this.value.length);
+			this.focus();
+			this.selectionStart = startPos + myValue.length;
+			this.selectionEnd = startPos + myValue.length;
+			this.scrollTop = scrollTop;
+		} else {
+			this.value += myValue;
+			this.focus();
+		}
+	});
+	
+};
+
+//-------------------------------------------------------------
+
 
 // -->
 </script>
