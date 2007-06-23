@@ -173,12 +173,20 @@ function asv_amazon2_display($atts,$thing)
 	}
 	if($thing)
 	{
+		
 		$thing = str_replace('asv_url', $url, $thing);
 		$thing = str_replace('asv_sImageUrl', $smallimage, $thing);
 		$thing = str_replace('asv_mImageUrl', $mediumimage, $thing);
 		$thing = str_replace('asv_lImageUrl', $largeimage, $thing);
 		$thing = str_replace('asv_asin', $asin, $thing);
 		$thing = str_replace('asv_title', $title, $thing);
+		
+		$thing = str_replace('asv_amazon2_url', $url, $thing);
+		$thing = str_replace('asv_amazon2_sImageUrl', $smallimage, $thing);
+		$thing = str_replace('asv_amazon2_mImageUrl', $mediumimage, $thing);
+		$thing = str_replace('asv_amazon2_lImageUrl', $largeimage, $thing);
+		$thing = str_replace('asv_amazon2_asin', $asin, $thing);
+		$thing = str_replace('asv_amazon2_title', $title, $thing);
 		
 		$thing = str_replace('asv_DetailPageURL', $url, $thing);
 		$thing = str_replace('asv_SmallImageURL', $smallimage, $thing);
@@ -322,6 +330,7 @@ function asv_parseResponse(xml)
 
 	line += asv_prevnext_link(keywords, searchindex, itemPage, totalPages, "top");
 
+	
 	$(xml).find('Item').each(function(){
 		var title = $('Title',this).text();
 		var sImageURL = $("SmallImage > URL",this).text();
@@ -333,15 +342,14 @@ function asv_parseResponse(xml)
 		
 		var amazonHTML = '<a href="'+url+'"><img src="'+ sImageURL +'" style="display: block;margin-left: auto;margin-right: auto;"/><span style="text-align: center">' + title + '</span></a>' ;
 		
-		var form = '<form id="asv_amazon2_'+asin+' onsubmit="asv_amazon2_addtoBody(\''+asin+'\')">' + 
+		var form = '<form id="asv_amazon2_'+asin+'">' + 
 					'<input type="hidden" name="asv_amazon2_title" value="'+title+'" />' +
 					'<input type="hidden" name="asv_amazon2_sImageURL" value ="'+sImageURL+'" />' +
 					'<input type="hidden" name="asv_amazon2_mImageURL" value ="'+mImageURL+'" />' +
 					'<input type="hidden" name="asv_amazon2_lImageURL" value ="'+lImageURL+'" />' +
 					'<input type="hidden" name="asv_amazon2_url" value ="'+url+'" />' +
 					'<input type="hidden" name="asv_amazon2_asin" value ="'+asin+'" />' +
-					'<input type="button" id="asv_amazon2_add_'+asin+'" style="float:right" onclick="asv_amazon2_addtoBody(\''+asin+'\')" class="publish" value="add" />'
-				   '</form>';
+					'<input type="button" id="asv_amazon2_add_'+asin+'" style="float:right" onclick="asv_amazon2_addtoBody(this.parentNode)" class="publish" value="add" />'+  '</form>';
 		
 		line += '<p>' + form + amazonHTML  + '</p>';
     });
@@ -365,14 +373,14 @@ $.fn.appendVal = function(txt) {
 //-------------------------------------------------------------  
 
 
-function asv_amazon2_addtoBody(asin)
+function asv_amazon2_addtoBody(elem)
 {
-	var title = $('input:hidden[@name=asv_amazon2_title]').val();
-	var sImageURL = $('input:hidden[@name=asv_amazon2_sImageURL]').val();
-	var mImageURL = $('input:hidden[@name=asv_amazon2_mImageURL]').val();
-	var lImageURL = $('input:hidden[@name=asv_amazon2_lImageURL]').val();
-	var url = $('input:hidden[@name=asv_amazon2_url]').val();
-	var asin = $('input:hidden[@name=asv_amazon2_asin]').val();
+	var title = $('input:hidden[@name=asv_amazon2_title]', elem).val();
+	var sImageURL = $('input:hidden[@name=asv_amazon2_sImageURL]', elem).val();
+	var mImageURL = $('input:hidden[@name=asv_amazon2_mImageURL]', elem).val();
+	var lImageURL = $('input:hidden[@name=asv_amazon2_lImageURL]', elem).val();
+	var url = $('input:hidden[@name=asv_amazon2_url]', elem).val();
+	var asin = $('input:hidden[@name=asv_amazon2_asin]', elem).val();
 	var form = $("#asv_amazon2_form option[@selected]").text();
 	
 	switch($("#asv_amazon2_tagtype option[@selected]").text())
@@ -397,7 +405,7 @@ function asv_amazon2_addtoBody(asin)
 			var asv_tag = '<txp:asv_amazon2_display ';
 			asv_tag += (asin)? 'asin="'+asin+'" ' : "";
 			asv_tag += (form)? 'form="'+form+'" ' : "";
-			asv_tag += 'cached="y"';
+			asv_tag += 'cache="y"';
 			asv_tag += ' />';
 			break;
 	}
