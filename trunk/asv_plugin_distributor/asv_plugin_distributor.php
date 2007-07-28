@@ -22,7 +22,7 @@ $plugin['description'] = 'Creates a feed that can be read by asv_plugininstaller
 $plugin['type'] = 0; 
 
 
-@include_once('zem_tpl.php');
+@include_once('../zem_tpl.php');
 
 if (0) {
 ?>
