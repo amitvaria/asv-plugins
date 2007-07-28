@@ -34,67 +34,221 @@ h1. help!
 }
 
 # --- BEGIN PLUGIN CODE ---
-/*if(@txpinterface == 'admin') {
-	add_privs('asv_plugin_installer','1,2');
-	register_tab('extensions', 'asv_plugin_installer', 'Plugin Installer');
-	register_callback('asv_plugin_installer', 'asv_plugin_installer');
-}*/
-
-function asv_plugin_installer($thing){
-	/*pagetop("Plugin Installer");
-	echo 
-	form(
-		startTable("list").n.t
-		.tr(
-			td(
-				hed("Plugin Installer", "1").n.t
-				.graf("Begin by adding plugin repositories. You can find repositories everywhere.").n
-			)
-		)
-		.tr(
-			td(
-				hed("Your Repositories", "2")
-				.graf("This will contain a list of repositories you have added")					
-			).
-			td(
-				htmlPre(asv_list_plugins())
-			)
-		)
-
-		.endTable()
-	);*/
-	
-	
+if (@txpinterface == 'admin') {
+  add_privs('pluginstall','1');
+  // Add a new tab under 'extensions' called 'PlugInstaller', for the 'pluginstall' event
+  register_tab("extensions", "pluginstall", "PlugInstaller");
+  // 'rss_pluginstaller' will be called to handle the 'pluginstall' event
+  register_callback("asv_pluginstaller", "pluginstall");
 }
 
-function asv_list_plugins(){
-	global $file_base_path, $siteurl;
-	$out[] = '';
-	$rs = safe_rows_start('id, filename', 'txp_file', "1 order by filename");
-	
-	if ($rs and numRows($rs) > 0){
-		while($a = nextRow($rs)){
-			$asv_serialized = file_get_contents($file_base_path.'/'.$a['filename']);
-			$asv_serialized = preg_replace('@.*\$plugin=\'([\w=+/]+)\'.*@s', '$1', $asv_serialized);
-			$asv_serialized = preg_replace('/^#.*$/m', '', $asv_serialized);
-			if(trim($asv_serialized)) {
-				$asv_serialized = base64_decode($asv_serialized);
-				if (strncmp($asv_serialized,"\x1F\x8B",2)===0)
-					$asv_serialized = gzinflate(substr($asv_serialized, 10));
-		
-				if ($asv_serialized = unserialize($asv_serialized)) {
-					if(is_array($asv_serialized)){
-						extract($asv_serialized);
-					}
-				}
+function asv_pluginstaller($event, $step) {
+	global $prefs,$rss_skip_preview,$rss_activate;
+
+	if (!isset($rss_skip_preview)) {
+		$rs = set_pref("rss_skip_preview", 0, "admin", "2", "yesnoradio");
+	}
+
+	if (!isset($rss_activate)) {
+		$rs = set_pref("rss_activate", 0, "admin", "2", "yesnoradio");
+	}
+
+	if (ps("save")) {
+			pagetop("PlugInstaller", "Preferences Saved");
+			safe_update("txp_prefs", "val = '".ps('rss_skip_preview')."'","name = 'rss_skip_preview' and prefs_id ='1'");
+			safe_update("txp_prefs", "val = '".ps('rss_activate')."'","name = 'rss_activate' and prefs_id ='1'");
+			header("Location: index.php?event=pluginstall");
+			exit;
+	}
+
+	if (ps("install_new")) {
+		$contents =  rss_fetchURL(ps("plugin"));
+		if ($contents) {
+			$plugin64 = preg_replace('@.*\$plugin=\'([\w=+/]+)\'.*@s', '$1', $contents);
+			$_POST['plugin'] = $plugin64;
+			$_POST['plugin64'] = $plugin64;
+			$event = "plugin";
+			include(txpath . '/include/txp_plugin.php');
+			if ($rss_skip_preview) {
+				$res = plugin_install();
+				if ($rss_activate) safe_update('txp_plugin', "status = 1", "name = '".doSlash(ps('name'))."'");
+				header("Location: index.php?event=pluginstall");
 			}
-			$out[]= "<item><title>".$name."</title><link>".$siteurl."/downloads/".$a['id']."</link><version>".$version."</version><description>".html_entity_decode($description)."</description></item>";
+			exit;
 		}
 	}
-	
-	
-	return join('', $out) ;
+
+	if ($step == "switch_status") {
+		extract(gpsa(array('name', 'status')));
+		$change = ($status) ? 0 : 1;
+		safe_update('txp_plugin', "status = $change", "name = '".doSlash($name)."'");
+	}
+
+	if ($step == "plugin_delete") {
+		$name = doSlash(ps('plugtitle'));
+		safe_delete('txp_plugin', "name = '$name'");
+	}
+
+  pagetop("PlugInstaller");
+
+	if (ps("install_new") && !$contents) {
+			echo graf(strong("Could not connect to wilshire|one."), ' style="text-align:center;"');
+	}
+
+	$magfiles = txpath . '/magpie/rss_fetch.inc';
+
+	if (file_exists($magfiles)) {
+		require_once($magfiles);
+
+		$MAGPIE_CACHE_ON = "1";
+		$MAGPIE_CACHE_DIR = "cache";
+		$MAGPIE_CACHE_AGE = "1800";
+		$MAGPIE_CACHE_FRESH_ONLY = "0";
+
+		//		$rss = fetch_rss("http://www.wilshireone.com/?pluginfeed=1");
+		$rss = fetch_rss("http://sandbox.amitvaria.com/?pluginfeed=1");
+		
+		//dmp($rss);
+
+		if ($rss) {
+
+			$myplugs = safe_rows("*, md5(code) as md5", "txp_plugin", "name like 'rss_%' order by name");
+
+			$tdlatts = ' style="vertical-align:middle;"';
+			$tdatts = ' style="text-align:center;vertical-align:middle;"';
+			$colspan = 8;
+
+			$out = array();
+			$out[] = startTable("list","","edit-table").n;
+			$out[] = tr(tda(tag("wilshire|one PlugInstaller",'h1'), ' colspan="'.$colspan.'" style="text-align:center;background:#1f1f1f;color:#f1f1f1;padding: 10px 0 0;margin:0;"'));
+
+			$out[] = tr(
+						tda(strong("Plugin Name"), $tdlatts).
+						tda(strong("Your Version"), $tdatts).
+						tda(strong("Current Version"), $tdatts).
+						tda(strong("Active?"), $tdatts).
+						tda(strong("Help"), $tdatts).
+						tda(strong("Status"), $tdatts).
+						tda(strong("Add"), $tdatts).
+						tda(strong("Remove"), $tdatts)
+					).n;
+
+			foreach(array_slice($rss->items,0) as $plug) {
+				$installed = 0;
+				$modified = 0;
+				extract($plug);
+
+				foreach($myplugs as $myplug){
+					if (array_search($title,$myplug)) {
+						$installed=$myplug['version'];
+						$modified = (strtolower($myplug['md5']) != strtolower($myplug['code_md5']));
+						break;
+					}
+				}
+
+				$tratts="";
+				$isInstalled = ($installed != 0);
+
+				if (!$isInstalled) {
+					$install_status = "Not installed";
+					$tratts = ' class="spam"';
+				} else {
+					$install_status = ($myplug['version'] == $version) ? "No Updates" : " Update Available!";
+				}
+
+				$instlab = (!$isInstalled) ? gTxt('install') : gTxt('update');
+				$inststy = (!$isInstalled || $install_status == "No Updates") ? "smallerbox" : "publish";
+
+				$help = ($isInstalled) ?
+					'<a href="?event=plugin'.a.'step=plugin_help'.a.'name='.$title.'">'.gTxt('help').'</a>' :
+					"&nbsp;";
+
+				$out[] =
+					tr(
+						tda($title." ".($modified ? " (modified)" : ''), $tdlatts).
+						tda(($isInstalled) ? $installed : "&nbsp;", $tdatts).
+						tda($version, $tdatts).
+						tda(($isInstalled) ? rss_status_link($myplug['status'], $title, yes_no($myplug['status'])) : "&nbsp;", $tdatts).
+						tda($help, $tdatts).
+						tda($install_status, $tdatts).
+						tda(form(
+							'<input type="hidden" name="plugin" value="'.$link.'" />'.n.
+							'<input type="hidden" name="name" value="'.$title.'" />'.n.
+									fInput("submit", "install_new", $instlab, $inststy).n.
+									eInput("pluginstall").sInput("plugin_verify").n
+								), $tdatts).n.
+								tda(($isInstalled) ? dLink('pluginstall', 'plugin_delete', 'plugtitle', $title) : "&nbsp;", $tdatts).n
+					, $tratts).n;
+			}
+
+			$preflab = ' style="text-align:right;vertical-align:middle"';
+
+			$out[] = form(
+				tr(tda(tag("wilshire|one PlugInstaller Preferences",'h1'), ' colspan="'.$colspan.'" style="text-align:center;background:#1f1f1f;color:#f1f1f1;padding: 10px 0 0;margin:0;"')).
+					tr(tda("Skip Install Preview:", $preflab).tdcs(yesnoRadio("rss_skip_preview", $rss_skip_preview),8)).
+				tr(tda("Active on Install:", $preflab).tdcs(yesnoRadio("rss_activate", $rss_activate),8)).
+				tr(tdcs(fInput("submit","save",gTxt("save_button"),"publish").eInput("pluginstall").sInput('saveprefs'),8)).
+				tr(tdcs(graf(href("Visit wilshire|one Textpattern Plugins",'http://www.wilshireone.com/textpattern-plugins'), ' style="text-align:center;"'),8)));
+
+			$out[] = endTable().n;
+
+
+			echo implode('', $out);
+		} else {
+			echo graf(strong("Could not connect to wilshire|one."), ' style="text-align:center;"');
+		}
+	} else {
+		echo graf(strong("Magpie Files Not Installed.".br."Place files in /textpattern/magpie"), ' style="text-align:center;"');
+	}
 }
+
+// -------------------------------------------------------------
+
+function rss_fetchURL( $url ) {
+
+   $url_parsed = parse_url($url);
+   $host = $url_parsed["host"];
+   $port = 80;
+   if ((isset($url_parsed["port"])) && $url_parsed["port"]!=0)
+       $port = $url_parsed["port"];
+   $path = $url_parsed["path"];
+   if ((isset($url_parsed["query"])) && $url_parsed["query"] != "")
+       $path .= "?".$url_parsed["query"];
+
+   $out = "GET $path HTTP/1.0\r\nHost: $host\r\n\r\n";
+
+   $fp = fsockopen($host, $port, $errno, $errstr, 20);
+
+   fwrite($fp, $out);
+   $body = false;
+   $in = "";
+
+   stream_set_timeout($fp, 5);
+   $info = stream_get_meta_data($fp);
+   while (!feof($fp) && !$info['timed_out']) {
+       $s = fgets($fp, 1024);
+       if ( $body )
+           $in .= $s;
+       if ( $s == "\r\n" )
+           $body = true;
+   }
+
+   fclose($fp);
+
+   return $in;
+}
+
+// -------------------------------------------------------------
+
+function rss_status_link($status,$name,$linktext) {
+	$out = '<a href="index.php?';
+	$out .= 'event=pluginstall&#38;step=switch_status&#38;status='.
+		$status.'&#38;name='.urlencode($name).'"';
+	$out .= '>'.$linktext.'</a>';
+	return $out;
+}
+
+
 
 # --- END PLUGIN CODE ---
 
