@@ -35,6 +35,45 @@ if (0) {
 
 # --- BEGIN PLUGIN CODE ---
 
+if(gps('pluginfeed')==1)
+{
+	global $file_base_path, $siteurl;
+	$out[] = '';
+	$rs = safe_rows_start('id, filename', 'txp_file', "1 order by filename");
+	
+	header("Content-Type: application/xml; charset=ISO-8859-1"); 
+	echo '<rss version="0.92"><channel>';
+	echo '<title>Amit Varia\'s Plugins!</title>';
+	echo '<link>http://www.amitvaria.com</link>';
+	echo '<description>my plugins</description>';
+
+	if ($rs and numRows($rs) > 0){
+		while($a = nextRow($rs)){
+			$asv_serialized = file_get_contents($file_base_path.'/'.$a['filename']);
+
+			$asv_serialized = preg_replace('@.*\$plugin=\'([\w=+/]+)\'.*@s', '$1', $asv_serialized);
+			$asv_serialized = preg_replace('/^#.*$/m', '', $asv_serialized);
+			if(trim($asv_serialized)) {
+				$asv_serialized = base64_decode($asv_serialized);
+				if (strncmp($asv_serialized,"\x1F\x8B",2)===0)
+					$asv_serialized = gzinflate(substr($asv_serialized, 10));
+		
+				if ($asv_serialized = unserialize($asv_serialized)) {
+					if(is_array($asv_serialized)){
+						extract($asv_serialized);
+					}
+				}
+			}
+			echo "<item><title>".$name."</title><link>".$siteurl."/downloads/".$a['id']."</link><version>".$version."</version><description>".html_entity_decode($description)."</description></item>";
+		}
+	}
+
+	echo "</channel></rss>";
+
+	exit();
+
+}
+
 # --- END PLUGIN CODE ---
 
 ?>
