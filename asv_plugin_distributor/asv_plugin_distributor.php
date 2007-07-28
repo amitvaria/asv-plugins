@@ -8,12 +8,12 @@
 
 // Plugin name is optional.  If unset, it will be extracted from the current
 // file name. Uncomment and edit this line to override:
-$plugin['name'] = '';
+$plugin['name'] = 'asv_pluginfeed';
 
-$plugin['version'] = '';
+$plugin['version'] = '1.0';
 $plugin['author'] = 'Amit Varia';
 $plugin['author_uri'] = 'http://www.amitvaria.com/';
-$plugin['description'] = '';
+$plugin['description'] = 'Creates a feed that can be read by asv_plugininstaller';
 
 // Plugin types:
 // 0 = regular plugin; loaded on the public web side only
