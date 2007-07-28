@@ -19,10 +19,10 @@ $plugin['description'] = 'Adaption of Rob Sable\'s installer';
 // 0 = regular plugin; loaded on the public web side only
 // 1 = admin plugin; loaded on both the public and admin side
 // 2 = library; loaded only when include_plugin() or require_plugin() is called
-$plugin['type'] = 0; 
+$plugin['type'] = 1; 
 
 
-@include_once('zem_tpl.php');
+@include_once('../zem_tpl.php');
 
 if (0) {
 ?>
@@ -35,15 +35,15 @@ h1. help!
 
 # --- BEGIN PLUGIN CODE ---
 if (@txpinterface == 'admin') {
-  add_privs('pluginstall','1');
-  // Add a new tab under 'extensions' called 'PlugInstaller', for the 'pluginstall' event
-  register_tab("extensions", "pluginstall", "PlugInstaller");
-  // 'rss_pluginstaller' will be called to handle the 'pluginstall' event
-  register_callback("asv_pluginstaller", "pluginstall");
+  add_privs('asv_pluginstall','1');
+  // Add a new tab under 'extensions' called 'PlugInstaller', for the 'asv_pluginstall' event
+  register_tab("extensions", "asv_pluginstall", "PlugInstaller");
+  // 'asv_pluginstaller' will be called to handle the 'asv_pluginstall' event
+  register_callback("asv_pluginstaller", "asv_pluginstall");
 }
 
 function asv_pluginstaller($event, $step) {
-	global $prefs,$rss_skip_preview,$rss_activate;
+	global $prefs,$rss_skip_preview,$rss_activate, $asv_plugin_source;
 
 	if (!isset($rss_skip_preview)) {
 		$rs = set_pref("rss_skip_preview", 0, "admin", "2", "yesnoradio");
@@ -52,12 +52,18 @@ function asv_pluginstaller($event, $step) {
 	if (!isset($rss_activate)) {
 		$rs = set_pref("rss_activate", 0, "admin", "2", "yesnoradio");
 	}
+	
+	if (!isset($asv_plugin_source)) {
+		$rs = set_pref("asv_plugin_source", 'http://www.wilshireone.com/?pluginfeed=1', "admin", "2");
+		$asv_plugin_source = 'http://www.wilshireone.com/?pluginfeed=1';
+	}
 
 	if (ps("save")) {
 			pagetop("PlugInstaller", "Preferences Saved");
 			safe_update("txp_prefs", "val = '".ps('rss_skip_preview')."'","name = 'rss_skip_preview' and prefs_id ='1'");
 			safe_update("txp_prefs", "val = '".ps('rss_activate')."'","name = 'rss_activate' and prefs_id ='1'");
-			header("Location: index.php?event=pluginstall");
+			safe_update("txp_prefs", "val = '".ps('asv_plugin_source')."'","name = 'asv_plugin_source' and prefs_id ='1'");
+			header("Location: index.php?event=asv_pluginstall");
 			exit;
 	}
 
@@ -72,7 +78,7 @@ function asv_pluginstaller($event, $step) {
 			if ($rss_skip_preview) {
 				$res = plugin_install();
 				if ($rss_activate) safe_update('txp_plugin', "status = 1", "name = '".doSlash(ps('name'))."'");
-				header("Location: index.php?event=pluginstall");
+				header("Location: index.php?event=asv_pluginstall");
 			}
 			exit;
 		}
@@ -92,7 +98,7 @@ function asv_pluginstaller($event, $step) {
   pagetop("PlugInstaller");
 
 	if (ps("install_new") && !$contents) {
-			echo graf(strong("Could not connect to wilshire|one."), ' style="text-align:center;"');
+			echo graf(strong("Could not connect to wilshire|one (asv'd)."), ' style="text-align:center;"');
 	}
 
 	$magfiles = txpath . '/magpie/rss_fetch.inc';
@@ -106,13 +112,13 @@ function asv_pluginstaller($event, $step) {
 		$MAGPIE_CACHE_FRESH_ONLY = "0";
 
 		//		$rss = fetch_rss("http://www.wilshireone.com/?pluginfeed=1");
-		$rss = fetch_rss("http://sandbox.amitvaria.com/?pluginfeed=1");
+		$rss = fetch_rss($asv_plugin_source);
 		
 		//dmp($rss);
 
 		if ($rss) {
 
-			$myplugs = safe_rows("*, md5(code) as md5", "txp_plugin", "name like 'rss_%' order by name");
+			$myplugs = safe_rows("*, md5(code) as md5", "txp_plugin", "1 order by name");
 
 			$tdlatts = ' style="vertical-align:middle;"';
 			$tdatts = ' style="text-align:center;vertical-align:middle;"';
@@ -120,7 +126,8 @@ function asv_pluginstaller($event, $step) {
 
 			$out = array();
 			$out[] = startTable("list","","edit-table").n;
-			$out[] = tr(tda(tag("wilshire|one PlugInstaller",'h1'), ' colspan="'.$colspan.'" style="text-align:center;background:#1f1f1f;color:#f1f1f1;padding: 10px 0 0;margin:0;"'));
+
+			$out[] = tr(tda(tag("wilshire|one PlugInstaller (asv'd)",'h1'), ' colspan="'.$colspan.'" style="text-align:center;background:#1f1f1f;color:#f1f1f1;padding: 10px 0 0;margin:0;"'));
 
 			$out[] = tr(
 						tda(strong("Plugin Name"), $tdlatts).
@@ -175,19 +182,21 @@ function asv_pluginstaller($event, $step) {
 							'<input type="hidden" name="plugin" value="'.$link.'" />'.n.
 							'<input type="hidden" name="name" value="'.$title.'" />'.n.
 									fInput("submit", "install_new", $instlab, $inststy).n.
-									eInput("pluginstall").sInput("plugin_verify").n
+									eInput("asv_pluginstall").sInput("plugin_verify").n
 								), $tdatts).n.
-								tda(($isInstalled) ? dLink('pluginstall', 'plugin_delete', 'plugtitle', $title) : "&nbsp;", $tdatts).n
+								tda(($isInstalled) ? dLink('asv_pluginstall', 'plugin_delete', 'plugtitle', $title) : "&nbsp;", $tdatts).n
 					, $tratts).n;
 			}
 
 			$preflab = ' style="text-align:right;vertical-align:middle"';
+					
 
 			$out[] = form(
-				tr(tda(tag("wilshire|one PlugInstaller Preferences",'h1'), ' colspan="'.$colspan.'" style="text-align:center;background:#1f1f1f;color:#f1f1f1;padding: 10px 0 0;margin:0;"')).
+				tr(tda(tag("wilshire|one PlugInstaller (asv'd) Preferences",'h1'), ' colspan="'.$colspan.'" style="text-align:center;background:#1f1f1f;color:#f1f1f1;padding: 10px 0 0;margin:0;"')).
+				tr(tda(tag('Source: ', 'label').fInput('text', 'asv_plugin_source', $asv_plugin_source, 'edit', '', '', 30))).
 					tr(tda("Skip Install Preview:", $preflab).tdcs(yesnoRadio("rss_skip_preview", $rss_skip_preview),8)).
 				tr(tda("Active on Install:", $preflab).tdcs(yesnoRadio("rss_activate", $rss_activate),8)).
-				tr(tdcs(fInput("submit","save",gTxt("save_button"),"publish").eInput("pluginstall").sInput('saveprefs'),8)).
+				tr(tdcs(fInput("submit","save",gTxt("save_button"),"publish").eInput("asv_pluginstall").sInput('saveprefs'),8)).
 				tr(tdcs(graf(href("Visit wilshire|one Textpattern Plugins",'http://www.wilshireone.com/textpattern-plugins'), ' style="text-align:center;"'),8)));
 
 			$out[] = endTable().n;
@@ -205,7 +214,7 @@ function asv_pluginstaller($event, $step) {
 // -------------------------------------------------------------
 
 function rss_fetchURL( $url ) {
-
+/*
    $url_parsed = parse_url($url);
    $host = $url_parsed["host"];
    $port = 80;
@@ -236,13 +245,30 @@ function rss_fetchURL( $url ) {
    fclose($fp);
 
    return $in;
+   */
+   		// create a new curl resource
+		$ch = curl_init();
+
+		// set URL and other appropriate options
+		curl_setopt($ch, CURLOPT_URL, $url);
+		
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
+
+		// grab URL and pass it to the browser
+		$data = curl_exec($ch);
+
+		// close curl resource, and free up system resources
+		curl_close($ch);
+
+		return $data;
+		
 }
 
 // -------------------------------------------------------------
 
 function rss_status_link($status,$name,$linktext) {
 	$out = '<a href="index.php?';
-	$out .= 'event=pluginstall&#38;step=switch_status&#38;status='.
+	$out .= 'event=asv_pluginstall&#38;step=switch_status&#38;status='.
 		$status.'&#38;name='.urlencode($name).'"';
 	$out .= '>'.$linktext.'</a>';
 	return $out;
