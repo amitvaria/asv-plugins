@@ -10,7 +10,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'asv_amazon2';
 
-$plugin['version'] = '1.0rc1';
+$plugin['version'] = '1.0';
 $plugin['author'] = 'Amit Varia';
 $plugin['author_uri'] = 'http://www.amitvaria.com/';
 $plugin['description'] = 'Add Amazon items to your TXP article';
@@ -634,7 +634,7 @@ class asv_Amazon
 		extract(get_prefs());
 		
 		$parser = xml_parser_create();
-		$amazon_parser = &new AmazonParser();
+		$amazon_parser = &new Amazon2Parser();
 		xml_set_object($parser, $amazon_parser);
 		xml_parser_set_option($parser, XML_OPTION_CASE_FOLDING, false);
 		xml_set_element_handler($parser, "startElement", "endElement");
@@ -712,7 +712,7 @@ class asv_Amazon
 
 //-------------------------------------------------------------
 
-class AmazonParser
+class Amazon2Parser
 {
 //-------------------------------------------------------------
 /* This class is a helper to the asv_amazon function. The purpose of this class is to parse the xml data and return the information to the asv_amazon function.*/
