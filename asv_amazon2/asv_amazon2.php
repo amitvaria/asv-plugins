@@ -721,7 +721,7 @@ class Amazon2Parser
 
    //-------------------------------------------------------------
 
-   function AmazonParser()
+   function Amazon2Parser()
    {
    }
    
