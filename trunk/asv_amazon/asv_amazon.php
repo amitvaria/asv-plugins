@@ -8,9 +8,9 @@
 
 // Plugin name is optional.  If unset, it will be extracted from the current
 // file name. Uncomment and edit this line to override:
-$plugin['name'] = '';
+$plugin['name'] = 'asv_amazon';
 
-$plugin['version'] = '';
+$plugin['version'] = '0.5';
 $plugin['author'] = 'Amit Varia';
 $plugin['author_uri'] = 'http://www.amitvaria.com/';
 $plugin['description'] = '';
