@@ -8,9 +8,9 @@
 
 // Plugin name is optional.  If unset, it will be extracted from the current
 // file name. Uncomment and edit this line to override:
-$plugin['name'] = 'asv_amazon2';
+$plugin['name'] = 'asv_amazon';
 
-$plugin['version'] = '1.0';
+$plugin['version'] = '2.1';
 $plugin['author'] = 'Amit Varia';
 $plugin['author_uri'] = 'http://www.amitvaria.com/';
 $plugin['description'] = 'Add Amazon items to your TXP article';
@@ -27,13 +27,13 @@ $plugin['type'] = 1;
 if (0) {
 ?>
 # --- BEGIN PLUGIN HELP ---
-h1. asv_amazon2
+h1. asv_amazon
 
-h2. version 1.0rc1
+h2. version 2.0
 
 h3. What's new?
 
-A long time ago, I created a plugin called asv_amazon, which let you display products from Amazon on your site. It worked, but inserting the product required you to go to Amazon, copy the ASIN number, and paste into the TextPattern. What a hassle! Well I finally got around to writing the next version of asv_amazon. I've called it asv_amazon2 since it is completely written and works in a whole new way.
+A long time ago, I created a plugin called asv_amazon, which let you display products from Amazon on your site. It worked, but inserting the product required you to go to Amazon, copy the ASIN number, and paste into the TextPattern. What a hassle! Well I finally got around to writing the next version of asv_amazon. 
 
 h3. How does it work?
 
@@ -777,6 +777,120 @@ class Amazon2Parser
 	   return $this->asv_contents;
    }
 
+}
+
+function asv_amazon($att, $thing=''){
+/* asv_amazon is the main function for the plugin. When the plugin tags are inserted into the page, this function will be called.
+	$att - an array that holds the following values: $asin, [$locale, $cache, $cacheimg]
+	$thing - a string that holds the string in between the open an close tags of this plugin
+*/
+	global $tempdir;
+	global $siteurl;
+	
+	//Setting defaults! - Note any settings in the tags will override these settings
+	$locale="us"; // us/de/fr/jp/ca/uk
+	$cacheimg="none"; // none/small/medium/large
+	$cache="none"; // true/false
+	$tmp_folder = $tempdir;
+	$path = "http://$siteurl/textpattern/tmp";
+
+	//Make sure that the array $att is a proper array before extracting all the contents into variable names of their keys
+	is_array($att) ? extract($att) : print("asv_amazon: Please refer to the manual to properly define the asv_amazon tag.");
+	
+	//An ASIN must be provided for this plugin
+	if(!isset($asin)) 
+	{
+		print("You must specify the ASIN (Amazon Standard Item Number) for the product that you want to display. The ASIN is a 10 digit number found in the URL of theproduct detail page.");
+	}
+	
+	//cacheimg should be either small, medium, or large. By default cacheimg is set to none (this means not to cache the image)
+	if(($cache == "true") && file_exists("$tmp_folder/$locale-$asin.xml") && (time() - (fileatime("$tmp_folder/$locale-$asin.xml")) < 8640000))
+	{
+		$url = "$tmp_folder/$locale-$asin.xml";
+	}		
+	else
+	{//Otherwise go grab the xml file
+	
+		$base = '';
+		
+		//Set the base url to the appropriate locale
+		switch ($locale) {
+			case "us":
+				$base = 'http://webservices.amazon.com/onca/xml';
+				break;
+			case "uk":
+				$base = 'http://webservices.amazon.co.uk/onca/xml';
+				break;
+			case "de":
+				$base = 'http://webservices.amazon.de/onca/xml';
+				break;
+			case "jp":
+				$base = 'http://webservices.amazon.co.jp/onca/xml';
+				break;
+			case "fr":
+				$base = 'http://webservices.amazon.fr/onca/xml';
+				break;
+			case "ca":
+				$base = 'http://webservices.amazon.ca/onca/xml';
+				break;
+		}
+		
+		$query_string = '';
+		
+		$params = array(
+			'Service' => 'AWSECommerceService',
+			'SubscriptionId' => '0DZWD9BKQ6DHPH4XA2G2' , // You can specify your own developer tag if you have registered to be an Amazon web services developer
+			'Operation' => 'ItemLookup',
+			'ItemId' => $asin,
+			'ResponseGroup' => 'Medium',
+		);
+		
+		foreach ($params as $key => $value) 
+		{
+			$query_string .= "$key=" . urlencode($value) . "&";
+		}
+		
+		//Build the url
+		$url = "$base?$query_string";
+	}
+	
+	//Set up the parser - to understand this I suggest the following tutorial: http://www.sitepoint.com/article/php-xml-parsing-rss-1-0
+	$parser = xml_parser_create();
+	$amazon_parser = &new Amazon2Parser($locale, $asin, $cacheimg, $tmp_folder);
+	xml_set_object($parser, $amazon_parser);
+	xml_parser_set_option($parser, XML_OPTION_CASE_FOLDING, false);
+	xml_set_element_handler($parser, "startElement", "endElement");
+	xml_set_character_data_handler($parser, "characterData");
+
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, $url);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
+	$data=curl_exec ($ch);
+	curl_close ($ch);
+	if (!xml_parse($parser, $data)) {
+		print(sprintf("XML error: %s at line %d",
+					xml_error_string(xml_get_error_code($parser)),
+					xml_get_current_line_number($parser)));
+	}
+
+	xml_parser_free($parser);
+
+	//Grab the contents from the AmazonParser Class
+	$asv_contents = $amazon_parser->getContentsArray();
+
+	//Properly synthesize the HTML to return
+	if($thing)
+	{
+		foreach($asv_contents as $key=>$value)
+		{
+			$thing = str_replace($key, $value, 	$thing);
+		}
+	}
+	else
+	{
+		$thing = "<a href=\"".$asv_contents['asv_DetailPageURL']."\"><img src=\"".$asv_contents['asv_SmallImageURL']."\" /><br />".$asv_contents['asv_Title']."</a><br />";
+	}
+	return $thing;
 }
 # --- END PLUGIN CODE ---
 ?>
