@@ -37,14 +37,430 @@ if (0) {
 
 if (@txpinterface == 'admin')
 {
-	//add_privs('asv_tumblelog','1,2,3,4'); // Allow only userlevels 1,2,3,4 acess to this plugin.
-	register_tab('extensions', 'asv_tumblelog', "tumblelog");
+	add_privs('asv_tumblelog','1,2,3,4'); // Allow only userlevels 1,2,3,4 acess to this plugin.
+	register_tab('extensions', 'asv_tumblelog', "Tumblelog");
 	register_callback("asv_tumblelog", "asv_tumblelog");
 }
 
+//--------------------------------------------------------------
+// Utility Functions
+//--------------------------------------------------------------
+function asv_tumblelog_title($active)
+{
+	$titles = array('Settings', 'Feeds');
+	$newtitles = array();
+	foreach($titles as $title)
+	{
+		if($title!=$active)
+		{
+			$title='<a href="index.php?event=asv_tumblelog&step='.$title.'">'.$title.'</a>';
+		}
+		array_push($newtitles, $title);
+	}
+	
+	return tag(join($newtitles, " | "), 'h1', ' style="text-align: center;"');
+}
+//--------------------------------------------------------------
+function asv_section_popup($Section, $id)
+{
+	$rs = safe_column('name', 'txp_section', "name != 'default'");
+  
+	if ($rs)
+	{
+		return selectInput('tumblelogsection', $rs, $Section, false, '', $id);
+	}
+  
+	return false;
+}
+//--------------------------------------------------------------
+function asv_custom_popup($Custom, $id)
+{
+	$rs = safe_column('val', 'txp_prefs', "name LIKE 'custom_%_set'");
+  
+	if ($rs)
+	{
+		return selectInput('sourcelink', $rs, $Custom, false, '', $id);
+	}
+  
+	return false;
+}
+//--------------------------------------------------------------
+function asv_form_popup($Custom, $id, $name="")
+{
+	$rs = safe_column('name', 'txp_form', "1=1");
+  
+	if ($rs)
+	{
+		return selectInput($id, $rs, $Custom, false, '', $id);
+	}
+  
+	return false;
+}
+//--------------------------------------------------------------
+function asv_cat_popup($Custom, $id, $name="")
+{
+	$rs = getTree('root', 'article');
+
+	if ($rs)
+	{
+		return treeSelectInput($name,$rs,$Custom, $id);
+	}
+
+	return false;
+}
+//-------------------------------------------------------------
+function get_asv_tumblelog_prefs()
+{
+	$out = array();
+	$r = safe_rows_start('name, val', 'txp_prefs', "event='asv_tumblelo'");
+	if ($r) {
+		while ($a = nextRow($r)) {
+			$out[$a['name']] = $a['val'];
+		}
+		
+		return lAtts(array(
+			'sourcelink'	=> '',
+			'tumblelogsection' => '',
+			'simplepie' => '',
+			'postform'	=> '',
+			'quoteform'	=> '',
+			'photoform'	=> '',
+			'linkform' 	=> '',
+			'rssfeedpage' => '',
+			),$out);
+
+	}
+	return false;
+}
+// -------------------------------------------------------------
+function asv_tumblelog_list_multiedit_form()
+{
+	$methods = array(
+		'delete'          => gTxt('delete'),
+	);
+
+	return event_multiedit_form('list', $methods, '','','','','');
+}
+//--------------------------------------------------------------
+function asv_tumblelog_verifyFeed($feed, $simplepie)
+{
+	//Get SimplePie
+	require_once($simplepie);
+	
+	//Create and setup SimplePie Instance
+	$thefeed = new SimplePie();
+	$thefeed->set_feed_url($feed);
+	$thefeed->enable_cache(false);
+	$thefeed->handle_content_type();
+	
+	//Get the feed
+	$success = $thefeed->init();
+	
+	return ($success)? $thefeed->get_title():  false;
+
+}
+
+//--------------------------------------------------------------
+function asv_tumblelog_verifyTable()
+{
+	if(safe_query("SHOW TABLES LIKE '".safe_pfx('asv_tumblelog_feeds')."'"))
+	{
+		$version = mysql_get_server_info();
+		//Use "ENGINE" if version of MySQL > (4.0.18 or 4.1.2)
+		$tabletype = ( intval($version[0]) >= 5 || preg_match('#^4\.(0\.[2-9]|(1[89]))|(1\.[2-9])#',$version)) 
+						? " ENGINE=MyISAM " 
+						: " TYPE=MyISAM ";
+		$result = safe_query("CREATE TABLE IF NOT EXISTS `".PFX."asv_tumblelog_feeds`(
+			`ID` int(11) NOT NULL auto_increment,
+			`Title` varchar(255) NOT NULL default '',
+			`Feed` varchar(255) NOT NULL default '',
+			`Annotate` int(2) NOT NULL default '0',
+			`Type` varchar(128) NOT NULL default '',
+			`Category1` varchar(128) NOT NULL default '',
+			`Category2` varchar(128) NOT NULL default '',
+			`Keywords` varchar(255) NOT NULL default '',
+			 PRIMARY KEY  (`ID`)
+			 ) $tabletype PACK_KEYS=1 AUTO_INCREMENT=2 ");
+	}
+}
+//--------------------------------------------------------------
+
 function asv_tumblelog($event, $step)
 {
-	pagetop();
+	$step=($step=='')?'Settings':$step;
+	
+	switch($step)
+	{
+		case 'Settings': 
+			asv_tumblelog_settings($step);
+			break;
+		case 'Feeds':
+			asv_tumblelog_feeds($step);
+			break;
+	}
+}
+
+function asv_tumblelog_feeds($step)
+{
+	asv_tumblelog_verifyTable();
+	
+	$types = array('post'=>'post', 'quote'=>'quote', 'photo'=>'photo', 'link'=>'link');
+	
+	$message = '';
+	
+	extract(doSlash(lAtts(array(
+		'rsspath' => '',
+		'type'	=> '',
+		'comments' => '',
+		'category1' =>'',
+		'category2' => '',
+		'keywords'	=>'',
+		'ID' =>'',
+		),
+		gpsa(array(
+			'rsspath', 
+			'type', 
+			'comments', 
+			'category1', 
+			'category2', 
+			'keywords',
+			'ID'
+			)))));
+				
+	extract(get_asv_tumblelog_prefs());
+	
+	if(gps('save_feeds'))
+	{
+		if(in_array($type,$types))
+		{
+			if($title = asv_tumblelog_verifyFeed($rsspath, $simplepie))
+			{
+				$title = doSlash($title);
+				if($ID)
+				{
+					safe_update('asv_tumblelog_feeds', 
+						"Feed = '$rsspath',
+						Title = '$title',
+						Type = '$type',
+						Category1 = '$category1',
+						Category2 = '$category2',
+						Keywords = '$keywords',
+						Annotate = '$comments'",
+						"ID = $ID"
+						);		
+				}
+				else
+				{
+					safe_insert('asv_tumblelog_feeds', 
+						"Feed = '$rsspath',
+						Title = '$title',
+						Type = '$type',
+						Category1 = '$category1',
+						Category2 = '$category2',
+						Keywords = '$keywords',
+						Annotate = '$comments'"
+						);					
+				}
+			}
+			else
+			{
+				$message = "Not a valid feed.";
+			}
+		}
+		else
+		{
+			$message = "Type is required.  - $type -";
+		}
+	}
+	if(gps('action')=='delete')
+	{
+		$selected = ps('selected');
+		if ($selected)
+		{
+			$ids = array();
+			foreach ($selected as $id)
+			{
+				$id = assert_int($id);
+				if (safe_delete('asv_tumblelog_feeds', "ID = $id"))
+				{
+					$ids[] = $id;
+				}
+			}
+			$changed = join(', ', $ids);
+			$message = "Removed $changed";
+		}
+	}	
+	
+	pagetop('Tumblelog', $message);
+		
+	echo n.n.'<form name="tumblelog-admin" method="post" action="index.php?event=asv_tumblelog&step=Feeds">'.
+	hInput('step', 'Feeds').
+	hInput('ID', $ID);
+	
+	echo asv_tumblelog_title($step).
+	
+		tag('<a href="index.php?event=asv_tumblelog&step=Feeds">Add New Feed</a>' ,'h3', ' style="text-align: center;"').
+		
+		startTable('list').
+		
+			tr(td('Atom/RSS Path').td(fInput('text', 'rsspath', $rsspath))).
+			
+			tr(td('Type').td(selectInput('type', $types, $type, 0))).
+			
+			tr(td('Comments').td(onoffRadio('comments', ($comments)?$comments:"1"))).
+			
+			tr(td('Category1').td(asv_cat_popup($category1, 'category1'))).
+			
+			tr(td('Category2').td(asv_cat_popup($category2, 'category2'))).
+			
+			tr(td('Keywords').td(fInput('text', 'keywords', $keywords))).
+			
+			tr(tda(fInput('submit','save_feeds', ($ID)?'save':'add',"publish", '', '', '', 4), ' colspan=2')).
+			
+		endTable().'</form>';
+	echo tag("Current Feeds", "h3", ' style="text-align:center"').
+		'<form name="longform" method="post" action="index.php?event=asv_tumblelog&step=Feeds">'.
+		hInput('event', 'asv_tumblelog').
+		hInput('step', 'Feeds').
+		hInput('action', 'delete').
+		
+		n.startTable('list', '', '', '', '90%').
+		n.tr(
+			n.column_head('ID', 'id', 'list', true, '', '', '').
+			n.column_head('Title', 'title', 'list', true, '', '', '').			
+			n.column_head('Feed', 'feed', 'list', true, '', '', '').
+			n.column_head('Type', 'type', 'list', true, '', '', '').
+			n.column_head('Comments', 'comments', 'list', true, '', '', '').
+			n.column_head('Category1', 'category1', 'list', true, '', '', '').
+			n.column_head('Category2', 'category1', 'list', true, '', '', '').
+			n.column_head('Keywords', 'Keywords', 'list', true, '', '', '').
+			hCell()
+		);
+	$rs = safe_rows_start("*", "asv_tumblelog_feeds", "1=1");
+	if($rs)
+	{
+		while($a = nextRow($rs))
+		{
+			extract($a);
+			$link = "<a href=\"index.php?event=asv_tumblelog&step=Feeds&rsspath=$Feed&type=$Type$comments=$Annotate&category1=$Category1&category2=$Category2&keywords=$Keywords&ID=$ID\">$Title</a>";
+
+			echo n.tr(			td($ID).td($link).td(substr($Feed,0,10).'...').td($Type).td(($Annotate)?"on":"off").td($Category1).td($Category2).td($Keywords).td(fInput('checkbox', 'selected[]', $ID)));
+				
+		}
+		echo n.tr(
+				tda( select_buttons().
+ asv_tumblelog_list_multiedit_form(),' colspan="9" style="text-align: right; border: none;"'));
+	}
+		echo n.endTable().'</form>';
+}
+
+function asv_tumblelog_settings($step)
+{
+	if(gps('save_settings'))
+	{
+		extract(gpsa(array('sourcelink', 'tumblelogsection', 'simplepie', 'linkform', 'postform', 'quoteform', 'photoform')));
+		
+		($sourcelink)? set_pref('sourcelink', $sourcelink, 'asv_tumblelog', ''):''; 
+		
+		($tumblelogsection)? set_pref('tumblelogsection', $tumblelogsection, 'asv_tumblelog', ''):'';
+		
+		($simplepie)? set_pref('simplepie', $simplepie, 'asv_tumblelog', ''):'';		
+		
+		($postform)? set_pref('postform', $postform, 'asv_tumblelog', ''):'';	
+		
+		($quoteform)? set_pref('quoteform', $quoteform, 'asv_tumblelog', ''):'';	
+		
+		($photoform)? set_pref('photoform', $photoform, 'asv_tumblelog', ''):'';	
+		
+		($linkform)? set_pref('linkform', $linkform, 'asv_tumblelog', ''):'';		
+		
+	}
+	
+	pagetop('Tumblelog', (gps('save'))? 'Settings saved':'');
+	
+	extract(get_asv_tumblelog_prefs());
+	
+	echo n.n.'<form name="tumblelog-admin" method="post" action="index.php?event=asv_tumblelog">';
+	
+	echo asv_tumblelog_title($step).
+	
+		tag('General Settings' ,'h3', ' style="text-align: center;"').
+		
+		startTable('list').
+		
+			tr(td('Source Link Field').td(asv_custom_popup($sourcelink, 'sourcelink'))).
+			
+			tr(td('Tumblelog Section').td(asv_section_popup($tumblelogsection,
+			'tumblelogsection'))).
+			
+			tr(td('SimplePie Path').td(fInput('text', 'simplepie', $simplepie))).
+			
+		endTable().
+		
+		tag(' ', 'p'). 
+		
+		tag('Forms' ,'h3', ' style="text-align: center;"').
+		
+		startTable('list').
+		
+			tr(td('Post Form').td(asv_form_popup($postform, 'postform'))).
+			
+			tr(td('Quote Form').td(asv_form_popup($quoteform, 'quoteform'))).
+			
+			tr(td('Photo Form').td(asv_form_popup($photoform, 'photoform'))).
+			
+			tr(td('Link Form').td(asv_form_popup($linkform, 'linkform'))).
+			
+			tr(tda(fInput('submit','save_settings','save',"publish", '', '', '', 4), ' colspan=2')).
+			
+		endTable();
+		
+	echo n.n.'</form>';
+}
+
+if(gps('updatefeeds')==1)
+{
+	
+	extract(get_asv_tumblelog_prefs());
+	$rs = safe_rows_start("*", "asv_tumblelog_feeds", "1=1");
+	echo '<pre>';
+	if($rs)
+	{
+		while($a = nextRow($rs))
+		{
+			extract($a);
+			switch($Type)
+			{
+				case "post":
+					$form = $postform;
+					break;
+				case "quote":
+					$form = $quoteform;
+					break;
+				case "photo":
+					$form = $photoform;
+					break;
+				case "link":
+					$form = $linkform;
+					break;
+			}
+			echo asv_rssgrab(array(
+				'feed'	=> $Feed,
+				'simplepie' => $simplepie,
+				'type'	=> $Type,
+				'category1'	=> $Category1,
+				'category2' => $Category2,
+				'section'	=> $tumblelogsection,
+				'form'		=> $form,
+				'linkfield'	=> $sourcelink,
+				'pubdate' => '',
+				'comments'	=> $Annotate
+				));
+		}
+	}
+	echo '</pre>';
+	exit();
+
 }
 
 function asv_rssgrab($atts)
@@ -220,6 +636,17 @@ function asv_rssgrab($atts)
 						$q = safe_insert('txp_category', "name = '".doSlash($name)."', title = '".doSlash($category2)."', type = 'article', parent = 'root'");
 						rebuild_tree('root', 1, 'article');
 					}
+				}
+				
+				//Get custom field
+				$custom_row = safe_row("*", 'txp_prefs', "val='$linkfield'");
+				if($custom_row)
+				{
+					$linkfield = 'custom_'.$custom_row['position'];
+				}
+				else
+				{
+					$linkfield = "custom_1";
 				}
 				$result = safe_insert("textpattern",
 					"Title           = '".$out['title']."',
