@@ -10,7 +10,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'asv_tumblelog';
 
-$plugin['version'] = '0.2.1';
+$plugin['version'] = '0.3';
 $plugin['author'] = 'Amit Varia';
 $plugin['author_uri'] = 'http://www.amitvaria.com/';
 $plugin['description'] = 'Implementing the greatness of tumblelogs';
@@ -71,6 +71,10 @@ h3. Form Design
 
 p. Here you can edit the 4 forms used for your tumblelog.
 
+h3. Bookmarklet
+
+p. Add this to your bookmarks and you can create quick posts for sites you visit.
+
 h3. Reccommendations
 
 p. You'll learn that you have a lot of room for flexibility and customization with asv_tumblelog. I would recommend installing plugins like rss_auto_excerpt and tru_tags. With rss_auto_excerpt you can truncate posts and tru_tags will let you implement a tagging solution using the 'Keywords' field.
@@ -93,7 +97,7 @@ if (@txpinterface == 'admin')
 function asv_tumblelog_title($active)
 {
 
-	$titles = array('Settings'=>'Settings', 'Feeds'=>'Feeds', 'page-design'=>'Page Design', 'page-style'=>'Page Style', 'Design'=>'Form Design');
+	$titles = array('Settings'=>'Settings', 'Feeds'=>'Feeds', 'page-design'=>'Page Design', 'page-style'=>'Page Style', 'Design'=>'Form Design', 'bookmarklet'=>'Bookmarklet');
 	$newtitles = array();
 	foreach($titles as $key=>$title)
 	{
@@ -234,8 +238,9 @@ function asv_tumblelog_trimtwitter($input, $source)
 {
 	if(strstr($source, "twitter.com"))
 	{
-		return preg_replace('(\w+: )(\.*)', '$2');
+		return preg_replace('/(\w+:) (\.*)/', '$2', $input);
 	}
+	return $input;
 }
 //--------------------------------------------------------------
 
@@ -264,7 +269,43 @@ function asv_tumblelog($event, $step)
 		case 'page-style':
 			asv_tumblelog_pagestyle($step);
 			break;
+		case 'bookmarklet':
+			asv_tumblelog_bookmarklet($step);
+			break;
 	}
+}
+
+function asv_tumblelog_bookmarklet($step)
+{
+	global $prefs;
+	
+	pagetop('Tumblelog > Bookmarklet', '');
+	
+	extract(get_asv_tumblelog_prefs());
+	
+	echo asv_tumblelog_title($step);
+	
+	//Get custom field
+	$linkfield_set = '';
+	$custom_row = safe_row("*", 'txp_prefs', "val='$sourcelink'");
+	if($custom_row)
+	{
+		$linkfield_set = 'custom_'.$custom_row['position'];
+	}
+	else
+	{
+		$linkfield_set = "custom_1";
+	}
+	
+	
+	$bookmarklet = "javascript:var d=document,w=window,e=w.getSelection,k=d.getSelection,x=d.selection,s=(e?e():(k)?k():(x?x.createRange().text:0)),f='http://".$prefs['siteurl']."/textpattern/index.php',l=d.location,e=encodeURIComponent,p='?bm=1&override_form=".$linkform."&Section=".$tumblelogsection."&from_view=1&".$linkfield_set."='+e(l.href)+'&Title='+e(d.title)+'&Body='+e(s),u=f+p;a=function(){if(!w.open(u,'t','toolbar=0,resizable=0,status=1,width=800,height=800'))l.href=u;};if(/Firefox/.test(navigator.userAgent))setTimeout(a,0);else a();void(0)";
+	
+	
+	
+	echo startTable('list').
+		tr(tda('Add the following to your bookmarks to make a quick post', ' style="text-align:center"')).
+		tr(tda("<a href=\"$bookmarklet\" title='Drag this link to your Bookmarks Bar. Click to learn more.'>Share on TXP</a>", ' style="text-align:center"')).
+		endTable();
 }
 
 function asv_tumblelog_pagestyle($step)
@@ -739,13 +780,13 @@ function asv_rssgrab($atts)
 		$feeditems = $thefeed->get_items();
 		$favicon = $thefeed->get_favicon();
 		$message .= "\tFavicon - ".$favicon."\r\n";
-		foreach($feeditems as $feeditem) {		
-			// Get item title
-			$out['title'] = addslashes($feeditem->get_title());
-			$feeditems = $thefeed->get_items();
-			
+		foreach($feeditems as $feeditem) {			
 			//Get the permalink
 			$out['permalink'] = $feeditem->get_link();		
+			
+			// Get item title
+			$out['title'] = addslashes(asv_tumblelog_trimtwitter($feeditem->get_title(), $out['permalink']));
+			
 			
 			//Get the image
 			$out['image'] = $favicon;
@@ -781,12 +822,12 @@ function asv_rssgrab($atts)
 						$enc_link = $enc_link;
 					}
 					$enc_link = str_replace('&amp;', '&', $enc_link);
-					$out['body'] = '<object type="application/x-shockwave-flash" width="506" height="414" data="'.$enc_link.'">
+					$out['body'] = '<p><object type="application/x-shockwave-flash" width="506" height="414" data="'.$enc_link.'">
 	                                    <param name="quality" value="high" />
 	                                    <param name="allowfullscreen" value="true" />
 	                                    <param name="scale" value="showAll" />
 	                                    <param name="movie" value="'.$enc_link.'" />
-	                                </object>';
+	                                </object><p>';
 				}
 			}
 			elseif($type=="photo")
@@ -831,13 +872,13 @@ function asv_rssgrab($atts)
 						$message .= "\tImported $filename\r\n";
 					}
 				}				
-				$out['body'] = '<a href="'.$out['permalink'].'"><img src="'.hu.$img_dir."/".$imageID.$ext.'" /></a>';
+				$out['body'] = '<p><a href="'.$out['permalink'].'"><img src="'.hu.$img_dir."/".$imageID.$ext.'" /></a></p>';
 			}
 			else
 			{
 				if(!beginsWith($feeditem->get_description(), "<p"))
 				{
-					$out['body'] = dotag(addslashes($feeditem->get_description()), 'p');
+					$out['body'] = dotag(addslashes(asv_tumblelog_trimtwitter($feeditem->get_description(), $out['permalink'])), 'p');
 				}
 				else
 				{
