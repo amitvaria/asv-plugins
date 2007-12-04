@@ -230,6 +230,14 @@ function asv_tumblelog_verifyTable()
 	}
 }
 //--------------------------------------------------------------
+function asv_tumblelog_trimtwitter($input, $source)
+{
+	if(strstr($source, "twitter.com"))
+	{
+		return preg_replace('(\w+: )(\.*)', '$2');
+	}
+}
+//--------------------------------------------------------------
 
 function asv_tumblelog_feeds_list($atts,$thing)
 {
