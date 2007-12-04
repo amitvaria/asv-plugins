@@ -10,7 +10,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'asv_tumblelog';
 
-$plugin['version'] = '0.2';
+$plugin['version'] = '0.2.1';
 $plugin['author'] = 'Amit Varia';
 $plugin['author_uri'] = 'http://www.amitvaria.com/';
 $plugin['description'] = 'Implementing the greatness of tumblelogs';
@@ -133,7 +133,7 @@ function asv_custom_popup($Custom, $id)
 //--------------------------------------------------------------
 function asv_form_popup($Custom, $id, $name="")
 {
-	$rs = safe_column('name', 'txp_form', "1=1");
+	$rs = safe_column('name', 'txp_form', "type='article'");
   
 	if ($rs)
 	{
@@ -252,8 +252,10 @@ function asv_tumblelog($event, $step)
 			break;
 		case 'page-design':
 			asv_tumblelog_pagedesign($step);
+			break;
 		case 'page-style':
 			asv_tumblelog_pagestyle($step);
+			break;
 	}
 }
 
@@ -640,7 +642,7 @@ function asv_tumblelog_settings($step)
 		endTable();
 		
 	echo n.n.'</form>'.
-	'<h3 style="text-align:center"><a href="'.$prefs['siteurl'].'/?updatefeeds=1">manually update feeds</a></h3>';
+	'<h3 style="text-align:center"><a href="http://'.$prefs['siteurl'].'/?asv_tumblelog_updatefeeds=1">manually update feeds</a></h3>';
 }
 
 if(gps('asv_tumblelog_updatefeeds')==1)
@@ -836,7 +838,7 @@ function asv_rssgrab($atts)
 			}			
 
 			//Check to see if the article has already been imported
-			$exists = safe_count('textpattern', "Title = '".$out['title']."' AND Posted=$when");
+			$exists = safe_count('textpattern', "Title = '".$out['title']."' AND Posted=$when AND Section='$section'");
 			
 			//If it hasn't then let's add it
 			if($exists==0){
@@ -866,14 +868,15 @@ function asv_rssgrab($atts)
 				}
 				
 				//Get custom field
+				$message .= "\t\t$linkfield - custom\r\n";
 				$custom_row = safe_row("*", 'txp_prefs', "val='$linkfield'");
 				if($custom_row)
 				{
-					$linkfield = 'custom_'.$custom_row['position'];
+					$linkfield_set = 'custom_'.$custom_row['position'];
 				}
 				else
 				{
-					$linkfield = "custom_1";
+					$linkfield_set = "custom_1";
 				}
 				$result = safe_insert("textpattern",
 					"Title           = '".$out['title']."',
@@ -895,7 +898,7 @@ function asv_rssgrab($atts)
 					Annotate        =  1,
 					override_form   = '$form',
 					url_title       = '',
-					$linkfield 		= '".$out['permalink']."',
+					$linkfield_set 		= '".$out['permalink']."',
 					AnnotateInvite  = 'comments',
 					uid             = '".md5(uniqid(rand(),true))."',
 					feed_time       = $when"
