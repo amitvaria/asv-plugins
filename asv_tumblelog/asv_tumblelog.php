@@ -47,13 +47,14 @@ if (@txpinterface == 'admin')
 //--------------------------------------------------------------
 function asv_tumblelog_title($active)
 {
-	$titles = array('Settings', 'Feeds');
+
+	$titles = array('Settings'=>'Settings', 'Feeds'=>'Feeds', 'page-design'=>'Page Design', 'Design'=>'Form Design');
 	$newtitles = array();
-	foreach($titles as $title)
+	foreach($titles as $key=>$title)
 	{
 		if($title!=$active)
 		{
-			$title='<a href="index.php?event=asv_tumblelog&step='.$title.'">'.$title.'</a>';
+			$title='<a href="index.php?event=asv_tumblelog&step='.$key.'">'.$title.'</a>';
 		}
 		array_push($newtitles, $title);
 	}
@@ -197,7 +198,136 @@ function asv_tumblelog($event, $step)
 		case 'Feeds':
 			asv_tumblelog_feeds($step);
 			break;
+		case 'Design':
+			asv_tumblelog_design($step);
+			break;
+		case 'page-design':
+			asv_tumblelog_pagedesign($step);
 	}
+}
+
+function asv_tumblelog_pagedesign($step)
+{
+
+	extract(doSlash(get_asv_tumblelog_prefs()));
+	
+	$message = '';
+	if(gps('action')=='save' && gps('page-name'))
+	{		
+		$rs = safe_update("txp_page", "user_html='".doSlash(gps('form'))."'", "name = '".doSlash(gps('page-name'))."'");
+		$message = 'Page saved';
+	}
+	
+	pagetop('Tumblelog', $message);
+	
+	echo asv_tumblelog_title($step);
+	
+	$rs = safe_row("page", 'txp_section', "name = '$tumblelogsection'");
+	if($rs)
+	{
+		$page_rs = safe_row('*', 'txp_page', "name='".$rs['page']."'");
+		if($page_rs)
+		{
+			extract($page_rs);
+		}
+	}
+	
+	
+	echo n.startTable('list', '', '', '', '').		
+		n.'<form name="post-form" method="post" action="index.php">'.
+		n.hInput('event', 'asv_tumblelog').
+		n.hInput('step', 'page-design').
+		n.hInput('action', 'save').
+		n.hInput('page-name', $name).
+		tr(tda("Edit the page that handles the tumblelog section <b>".$name."</b>.", ' style="text-align:center"')).
+		tr(td(text_area('form', '800', '600', ($user_html)?$user_html:''))).
+		tr(tda(fInput('submit','save_settings','save',"publish", '', '', '', 4), ' style="text-align:right"')).'</form>'.
+	endTable();
+}
+function asv_tumblelog_design($step)
+{
+
+	extract(doSlash(get_asv_tumblelog_prefs()));
+	
+
+	if(gps('action')=='save')
+	{
+		switch(gps('method'))
+		{
+			case "post":
+				$rs = safe_update("txp_form", "Form='".gps('form')."'", "name = '$postform' AND type='article'");
+				break;
+			case "quote":
+				$rs = safe_update("txp_form", "Form='".gps('form')."'", "name = '$quoteform' AND type='article'");
+				break;
+			case "link":
+				$rs = safe_update("txp_form", "Form='".gps('form')."'", "name = '$linkform' AND type='article'");
+				break;
+			case "photo":
+				$rs = safe_update("txp_form", "Form='".gps('form')."'", "name = '$photoform' AND type='article'");
+				break;
+		}
+		
+	}
+	
+	pagetop('Tumblelog', (gps('save'))? 'Form saved':'');
+	
+	echo asv_tumblelog_title($step);
+	
+	$forms = array('post'=>$postform, 'quote'=>$quoteform, 'link'=>$linkform, 'photo'=>$photoform);
+	$editforms = array();
+	$formnames = array();
+	
+	foreach($forms as $type=>$form)
+	{
+		$rs = safe_row("*", 'txp_form', "name = '$form' AND type='article'");
+		
+		if($rs)
+		{
+			$editforms[$type] = $rs['Form'];
+			$formnames[$type] = $rs['name'];
+		}
+	}
+	
+	echo n.startTable('list', '', '', '', '').
+		
+		n.'<form name="post-form" method="post" action="index.php">'.
+		n.hInput('event', 'asv_tumblelog').
+		n.hInput('step', 'Design').
+		n.hInput('action', 'save').
+		n.hInput('method', 'post').
+		tr(tda("Edit the form that handles <b>posts (".$formnames['post'].")</b>.", ' style="text-align:center"')).
+		tr(td(text_area('form', '150', '500', $editforms['post']))).
+		tr(tda(fInput('submit','save_settings','save',"publish", '', '', '', 4), ' style="text-align:right"')).'</form>'.
+		
+		n.'<form name="quote-form" method="post" action="index.php">'.
+		n.hInput('event', 'asv_tumblelog').
+		n.hInput('step', 'Design').
+		n.hInput('action', 'save').
+		n.hInput('method', 'quote').
+		tr(tda('Edit the form that handles <b>quotes ('.$formnames['quote'].')</b>.', ' style="text-align:center"')).
+		tr(td(text_area('form', '150', '500', $editforms['quote']))).
+		tr(tda(fInput('submit','save_settings','save',"publish", '', '', '', 4), ' style="text-align:right"')).'</form>'.
+		
+		n.'<form name="link-form" method="post" action="index.php">'.
+		n.hInput('event', 'asv_tumblelog').
+		n.hInput('step', 'Design').
+		n.hInput('action', 'save').
+		n.hInput('method', 'link').
+		tr(tda('Edit the form that handles <b>links ('.$formnames['link'].')</b>.', ' style="text-align:center"')).
+		tr(td(text_area('form', '150', '500', $editforms['link']))).
+		tr(tda(fInput('submit','save_settings','save',"publish", '', '', '', 4), ' style="text-align:right"')).'</form>'.
+	
+		n.'<form name="photo-form" method="post" action="index.php">'.
+		n.hInput('event', 'asv_tumblelog').
+		n.hInput('step', 'Design').
+		n.hInput('action', 'save').
+		n.hInput('method', 'photo').
+		tr(tda('Edit the form that handles <b>photos ('.$formnames['photo'].')</b>.', ' style="text-align:center"')).
+		tr(td(text_area('form', '150', '500', $editforms['photo']))).
+		tr(tda(fInput('submit','save_settings','save',"publish", '', '', '', 4), ' style="text-align:right"')).'</form>'.
+		
+	endTable();
 }
 
 function asv_tumblelog_feeds($step)
@@ -356,6 +486,8 @@ function asv_tumblelog_feeds($step)
 
 function asv_tumblelog_settings($step)
 {
+	global $prefs;
+	
 	if(gps('save_settings'))
 	{
 		extract(gpsa(array('sourcelink', 'tumblelogsection', 'simplepie', 'linkform', 'postform', 'quoteform', 'photoform')));
@@ -415,7 +547,8 @@ function asv_tumblelog_settings($step)
 			
 		endTable();
 		
-	echo n.n.'</form>';
+	echo n.n.'</form>'.
+	'<h3 style="text-align:center"><a href="'.$prefs['siteurl'].'/?updatefeeds=1">manually update feeds</a></h3>';
 }
 
 if(gps('updatefeeds')==1)
