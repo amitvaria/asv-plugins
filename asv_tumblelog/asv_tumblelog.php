@@ -10,7 +10,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'asv_tumblelog';
 
-$plugin['version'] = '0.1';
+$plugin['version'] = '0.2';
 $plugin['author'] = 'Amit Varia';
 $plugin['author_uri'] = 'http://www.amitvaria.com/';
 $plugin['description'] = 'Implementing the greatness of tumblelogs';
@@ -27,8 +27,53 @@ $plugin['type'] = 1;
 if (0) {
 	?>
 # --- BEGIN PLUGIN HELP ---
+h1. asv_tumblelog
 
+h2. the beginning of a lifestream
 
+h3. Summary
+
+p. I used to be an avid user of services like "Tumblr":http://www.tumblr.com, but found myself wanting more freedom and control over my posts. Please follow the setup instructions below to ensure that everything gets setup. asv_tumblelog will import feeds for you as TXP articles.
+
+h3. Setup/Installation
+
+p. asv_tumblelog requires "SimplePie":http://www.simplepie.org, so please grab the latest version. After activating the plugin you will have a new tab under "Extensions" called "Tumblelog". In this tab you have four options - Settings, Feeds, Page Design, Form Design.
+
+p. Once everything is setup you'll need to setup a cron job to get a specific url to update the feeds. The path would be: http://websiteurl/?asv_tumblelog_updatefeeds=1 (note: this is not the textpattern folder, but the url to your main site).
+
+h3. Settings
+
+p. Before using asv_tumblelog you'll need to setup a couple things. 
+* *Source Link Field* - select the custom field you would like to use to store the original link to the imported post
+* *Tumblelog Section* - the section to import the feed into
+* *SimplePie Path* - /the/path/to/your/SimplePie/install
+
+* *Post Form* - the form that should be used to feeds typed as posts
+* *Quote Form* - the form that should be used to feeds typed as quotes
+* *Link Form* - the form that should be used to feeds typed as links
+* *Photo Form* - the form that should be used to feeds typed as photos
+
+h3. Feeds
+
+p. In the 'Feeds' section you add/edit/view all your feeds you are importing. When adding a feed, fill in the information and choose the appropriate type. You can create your own definitions for each type since you can edit the design in latter sections.
+
+p. *The one exception is the photo type.* If a feed is typed as a photo then asv_tumblelog will parse the body of a post and grab the first image, import it into TXP, and make the body of the imported article a reference to the imported photo.
+
+h3. Page Design
+
+p. Here you can edit the page that is associated to your tumblelog section.
+
+h3. Page Style
+
+p. Here you can edit the style that is associated to your tumblelog section.
+
+h3. Form Design
+
+p. Here you can edit the 4 forms used for your tumblelog.
+
+h3. Reccommendations
+
+p. You'll learn that you have a lot of room for flexibility and customization with asv_tumblelog. I would recommend installing plugins like rss_auto_excerpt and tru_tags. With rss_auto_excerpt you can truncate posts and tru_tags will let you implement a tagging solution using the 'Keywords' field.
 # --- END PLUGIN HELP ---
 	<?php
 }
@@ -48,7 +93,7 @@ if (@txpinterface == 'admin')
 function asv_tumblelog_title($active)
 {
 
-	$titles = array('Settings'=>'Settings', 'Feeds'=>'Feeds', 'page-design'=>'Page Design', 'Design'=>'Form Design');
+	$titles = array('Settings'=>'Settings', 'Feeds'=>'Feeds', 'page-design'=>'Page Design', 'page-style'=>'Page Style', 'Design'=>'Form Design');
 	$newtitles = array();
 	foreach($titles as $key=>$title)
 	{
@@ -186,6 +231,10 @@ function asv_tumblelog_verifyTable()
 }
 //--------------------------------------------------------------
 
+function asv_tumblelog_feeds_list($atts,$thing)
+{
+}
+
 function asv_tumblelog($event, $step)
 {
 	$step=($step=='')?'Settings':$step;
@@ -203,7 +252,50 @@ function asv_tumblelog($event, $step)
 			break;
 		case 'page-design':
 			asv_tumblelog_pagedesign($step);
+		case 'page-style':
+			asv_tumblelog_pagestyle($step);
 	}
+}
+
+function asv_tumblelog_pagestyle($step)
+{
+
+	extract(doSlash(get_asv_tumblelog_prefs()));
+	
+	$message = '';
+	if(gps('action')=='save' && gps('style-name'))
+	{	
+		$form = doSlash(base64_encode(gps('form')));
+		$rs = safe_update("txp_css", "css='".$form ."'", "name = '".doSlash(gps('style-name'))."'");
+		$message = 'Style saved';
+	}
+	
+	pagetop('Tumblelog', $message);
+	
+	echo asv_tumblelog_title($step);
+	
+	$rs = safe_row("css", 'txp_section', "name = '$tumblelogsection'");
+	if($rs)
+	{
+		$page_rs = safe_row('*', 'txp_css', "name='".$rs['css']."'");
+		if($page_rs)
+		{
+			extract($page_rs);
+			$thecss = base64_decode($css);
+		}
+	}
+	
+	
+	echo n.startTable('list', '', '', '', '').		
+		n.'<form name="post-form" method="post" action="index.php">'.
+		n.hInput('event', 'asv_tumblelog').
+		n.hInput('step', 'page-style').
+		n.hInput('action', 'save').
+		n.hInput('style-name', $name).
+		tr(tda("Edit the style that handles the tumblelog section <b>".$name."</b>.", ' style="text-align:center"')).
+		tr(td(text_area('form', '800', '600', ($thecss)?$thecss:''))).
+		tr(tda(fInput('submit','save_settings','save',"publish", '', '', '', 4), ' style="text-align:right"')).'</form>'.
+	endTable();
 }
 
 function asv_tumblelog_pagedesign($step)
@@ -551,7 +643,7 @@ function asv_tumblelog_settings($step)
 	'<h3 style="text-align:center"><a href="'.$prefs['siteurl'].'/?updatefeeds=1">manually update feeds</a></h3>';
 }
 
-if(gps('updatefeeds')==1)
+if(gps('asv_tumblelog_updatefeeds')==1)
 {
 	
 	extract(get_asv_tumblelog_prefs());
@@ -587,7 +679,8 @@ if(gps('updatefeeds')==1)
 				'form'		=> $form,
 				'linkfield'	=> $sourcelink,
 				'pubdate' => '',
-				'comments'	=> $Annotate
+				'comments'	=> $Annotate,
+				'keywords'	=> $Keywords,
 				));
 		}
 	}
@@ -612,6 +705,7 @@ function asv_rssgrab($atts)
 			'linkfield'	=> 'custom_1',
 			'pubdate' => '',
 			'comments'	=> 'on',
+			'keywords'	=> '',
 			),$atts));
 			
 	$message = '';		
@@ -788,7 +882,7 @@ function asv_rssgrab($atts)
 					Excerpt         = '',
 					Excerpt_html    = '',
 					Image           = '".$favicon."',
-					Keywords        = '',
+					Keywords        = '$keywords',
 					Status          =  4,
 					Posted          =  $when,
 					LastMod         =  now(),
