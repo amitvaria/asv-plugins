@@ -10,7 +10,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'asv_tumblelog';
 
-$plugin['version'] = '1.2';
+$plugin['version'] = '1.3';
 $plugin['author'] = 'Amit Varia';
 $plugin['author_uri'] = 'http://www.amitvaria.com/';
 $plugin['description'] = 'Implementing the greatness of tumblelogs';
@@ -305,11 +305,20 @@ function asv_tumblelog_verifyTable()
 	}
 }
 //--------------------------------------------------------------
-function asv_tumblelog_trimtwitter($input, $source)
+function asv_tumblelog_trimtwitter($input, $source, $check_array)
 {
-	if(strstr($source, "twitter.com"))
+	if(strstr($source, "twitter.com") && in_array('twitter', $check_array))
 	{
 		return preg_replace('/(\w+:) (\.*)/', '$2', $input);
+	}
+	elseif(strstr($source, "vimeo.com") && in_array('vimeo', $check_array))
+	{
+		$video_id = substr(strrchr($source, '/'), 1);
+		
+$video_embed = <<<EOD
+<object type="application/x-shockwave-flash" width="400" height="327" data="http://www.vimeo.com/moogaloop.swf?clip_id=$video_id&amp;server=www.vimeo.com&amp;fullscreen=1&amp;show_title=1&amp;show_byline=1&amp;show_portrait=0&amp;color=01AAEA">	<param name="quality" value="best" />	<param name="allowfullscreen" value="true" />	<param name="scale" value="showAll" />	<param name="movie" value="http://www.vimeo.com/moogaloop.swf?clip_id=$video_id&amp;server=www.vimeo.com&amp;fullscreen=1&amp;show_title=1&amp;show_byline=1&amp;show_portrait=0&amp;color=01AAEA" /></object>
+EOD;
+		return $video_embed;
 	}
 	return $input;
 }
@@ -328,7 +337,6 @@ function asv_tumblelog_textile_main_fields($incoming, $use_textile)
 	return $incoming;
 }
 //--------------------------------------------------------------
-
 function asv_tumblelog_feeds_list($atts,$thing)
 {
 }
@@ -362,7 +370,7 @@ function asv_tumblelog($event, $step)
 			break;
 	}
 }
-
+//--------------------------------------------------------------
 function asv_tumblelog_mini($step)
 {
 	global $txp_user, $vars, $txpcfg, $prefs;
@@ -593,7 +601,7 @@ function asv_tumblelog_mini($step)
 	
 	exit();
 }
-
+//--------------------------------------------------------------
 function asv_tumblelog_bookmarklet($step)
 {
 	global $prefs;
@@ -626,7 +634,7 @@ function asv_tumblelog_bookmarklet($step)
 		tr(tda("<a href=\"$bookmarklet\" title='Drag this link to your Bookmarks Bar. Click to learn more.'>Share on TXP</a>", ' style="text-align:center"')).
 		endTable();
 }
-
+//--------------------------------------------------------------
 function asv_tumblelog_pagestyle($step)
 {
 
@@ -667,7 +675,7 @@ function asv_tumblelog_pagestyle($step)
 		tr(tda(fInput('submit','save_settings','save',"publish", '', '', '', 4), ' style="text-align:right"')).'</form>'.
 	endTable();
 }
-
+//--------------------------------------------------------------
 function asv_tumblelog_pagedesign($step)
 {
 
@@ -706,6 +714,7 @@ function asv_tumblelog_pagedesign($step)
 		tr(tda(fInput('submit','save_settings','save',"publish", '', '', '', 4), ' style="text-align:right"')).'</form>'.
 	endTable();
 }
+//--------------------------------------------------------------
 function asv_tumblelog_design($step)
 {
 
@@ -776,7 +785,7 @@ function asv_tumblelog_design($step)
 	
 	echo endTable();
 }
-
+//--------------------------------------------------------------
 function asv_tumblelog_feeds($step)
 {
 	asv_tumblelog_verifyTable();
@@ -979,12 +988,11 @@ function asv_tumblelog_feeds($step)
 				
 		}
 		echo n.tr(
-				tda( select_buttons().
- asv_tumblelog_list_multiedit_form(),' colspan="9" style="text-align: right; border: none;"'));
+				tda(select_buttons().asv_tumblelog_list_multiedit_form(),' colspan="9" style="text-align: right; border: none;"'));
 	}
 		echo n.endTable().'</form>';
 }
-
+//--------------------------------------------------------------
 function asv_tumblelog_settings($step)
 {
 	global $prefs;
@@ -1055,7 +1063,7 @@ function asv_tumblelog_settings($step)
 	echo n.n.'</form>'.
 	'<h3 style="text-align:center"><a href="http://'.$prefs['siteurl'].'/?asv_tumblelog_updatefeeds=1">manually update feeds</a></h3>';
 }
-
+//--------------------------------------------------------------
 if(gps('asv_tumblelog_updatefeeds')==1)
 {
 	
@@ -1103,7 +1111,7 @@ if(gps('asv_tumblelog_updatefeeds')==1)
 	exit();
 
 }
-
+//--------------------------------------------------------------
 function asv_tumblelog_favicon($atts, $thing)
 {
 	global $thisarticle;
@@ -1117,7 +1125,7 @@ function asv_tumblelog_favicon($atts, $thing)
 
 	return '';	
 }
-
+//--------------------------------------------------------------
 function asv_tumblelog_feed($atts, $thing)
 {
 	global $thisarticle;
@@ -1131,7 +1139,7 @@ function asv_tumblelog_feed($atts, $thing)
 
 	return '';	
 }
-
+//--------------------------------------------------------------
 function asv_tumblelog_feedurl($atts, $thing)
 {
 	global $thisarticle;
@@ -1145,7 +1153,7 @@ function asv_tumblelog_feedurl($atts, $thing)
 
 	return '';
 }
-
+//--------------------------------------------------------------
 function asv_tumblelog_permalinkl($atts, $thing)
 {
 	global $thisarticle;
@@ -1159,7 +1167,7 @@ function asv_tumblelog_permalinkl($atts, $thing)
 
 	return '';
 }
-
+//--------------------------------------------------------------
 function asv_rssgrab($atts)
 {
 	global $prefs, $txpcfg, $txp_user;
@@ -1207,7 +1215,7 @@ function asv_rssgrab($atts)
 			$out['permalink'] = $feeditem->get_link();		
 			
 			// Get item title
-			$out['title'] = addslashes(asv_tumblelog_trimtwitter($feeditem->get_title(), $out['permalink']));
+			$out['title'] = addslashes(asv_tumblelog_trimtwitter($feeditem->get_title(), $out['permalink'], array('twitter')));
 			
 			
 			//Get the image
@@ -1300,11 +1308,11 @@ function asv_rssgrab($atts)
 			
 			if(!beginsWith($feeditem->get_description(), "<p"))
 			{
-				$out['body'] = dotag(addslashes(asv_tumblelog_trimtwitter($feeditem->get_description(), $out['permalink'])), 'p');
+				$out['body'] = dotag(doSlash(asv_tumblelog_trimtwitter($feeditem->get_description(), $out['permalink'], array('twitter', 'vimeo'))), 'p');
 			}
 			else
 			{
-				$out['body'] = addslashes($feeditem->get_description());
+				$out['body'] = doSlash(asv_tumblelog_trimtwitter($feeditem->get_description(), $out['permalink'], array('twitter', 'vimeo')));
 			}		
 
 			//Check to see if the article has already been imported
@@ -1394,70 +1402,21 @@ function asv_rssgrab($atts)
 	}
 	return $message;
 }
-
-function asv_tumblelog_grabimg($atts,$thing)
-{
-	global $prefs;
-	extract($prefs);
-	if(!defined("IMPATH")) define("IMPATH",$path_to_site.'/'.$img_dir.'/');
-	$image = returnImage(parse($thing));
-	$image = urldecode(scrapeImage($image));
-	//Check to see if it needs to be imported into TXP Image
-	if($image)
-	{			
-		/*//get extension
-		$ext = strrchr($image, '.');
-		$check = safe_field('ID', 'txp_image', "NAME = '".$out['title']."' AND DATE = $when");		
-		if($check)
-		{
-			$imageID = $check;
-		}
-		else
-		{
-			safe_insert('txp_image',
-				"name = '".$out['title']."',
-				ext = '$ext',
-				date = $when"
-			);
-			$imageID = mysql_insert_id();
-			// create a new curl resource
-			$ch = curl_init();
-			// set URL and other appropriate options
-			curl_setopt($ch, CURLOPT_URL, "$image");
-			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-			// grab URL, and return output
-			$output = curl_exec($ch);
-			// close curl resource, and free up system resources
-			curl_close($ch);
-			//write to file
-			$filename = IMPATH.basename($image);				
-			$fh = fopen(IMPATH.$imageID.$ext, 'w');
-			fwrite($fh, $output);
-			fclose($fh);
-			$shortpath = basename($image);
-			$message .= "\tImported $filename\r\n";
-		}*/
-		return $image;
-	}	
-	return '';
-//	$out['body'] = '<p><a href="'.$out['permalink'].'"><img src="'.hu.$img_dir."/".$imageID.$ext.'" /></a></p>';
-}
-
+//--------------------------------------------------------------
 //helper functions
-////////////////////////////////////////////////////////////////
+//--------------------------------------------------------------
 //Get an image
-function returnImage ($text) {
+function returnImage ($text) 
+{
     $text = html_entity_decode($text);
-    //echo $text;
     $pattern = "/<img[^>]+\>/i";
     preg_match($pattern, $text, $matches);
     if($matches)	return $matches[0];
 	return '';
 }
-
-////////////////////////////////////////////////////////////////
-//Filter out image url only
-function scrapeImage($text) {
+//--------------------------------------------------------------
+function scrapeImage($text) 
+{
     
     $pattern = '/src=[\'"]?([^\'" >]+)[\'" >]/'; 
     
@@ -1466,10 +1425,12 @@ function scrapeImage($text) {
 	return '';
 
 }
-
-function beginsWith($str, $sub) {
+//--------------------------------------------------------------
+function beginsWith($str, $sub) 
+{
     return (strncmp($str, $sub, strlen($sub)) == 0);
-	}
+}
+//--------------------------------------------------------------
 # --- END PLUGIN CODE ---
 
 ?>
