@@ -10,7 +10,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'asv_tumblelog';
 
-$plugin['version'] = '1.4';
+$plugin['version'] = '1.5';
 $plugin['author'] = 'Amit Varia';
 $plugin['author_uri'] = 'http://www.amitvaria.com/';
 $plugin['description'] = 'Implementing the greatness of tumblelogs';
@@ -48,16 +48,20 @@ p. Before using asv_tumblelog you'll need to setup a couple things.
 * *Tumblelog Section* - the section to import the feed into
 * *SimplePie Path* - /the/path/to/your/SimplePie/install
 
-* *Post Form* - the form that should be used to feeds typed as posts
-* *Quote Form* - the form that should be used to feeds typed as quotes
-* *Link Form* - the form that should be used to feeds typed as links
-* *Photo Form* - the form that should be used to feeds typed as photos
+* *Post Form* - the default form that should be used for posts organized as posts
+* *Quote Form* - the default form that should be used for posts organized as quotes
+* *Link Form* - the default form that should be used for posts organized as links
+* *Photo Form* - the default form that should be used for posts organized as photos
+* *Video Form* - the default form that should be used for posts organized as videos
 
 h3. Feeds
 
-p. In the 'Feeds' section you add/edit/view all your feeds you are importing. When adding a feed, fill in the information and choose the appropriate type. You can create your own definitions for each type since you can edit the design in latter sections.
+p. In the 'Feeds' section you add/edit/view all your feeds you are importing. When adding a feed, fill in the information and choose the form you would like to use to display them. 
 
-p. *The one exception is the photo type.* If a feed is typed as a photo then asv_tumblelog will parse the body of a post and grab the first image, import it into TXP, and make the body of the imported article a reference to the imported photo.
+p. Some feeds have special handlers:
+* Twitter - the "username: " part of the feed will be removed
+* Viddler/YouTube/Vimeo - Any feed that come from these three sites will be automagically embedded as the body of your post
+* Images - Any feed where you want to just display the image (i.e. Flickr) can be set when adding the feed. You can choose between importing the image into TXP or just referencing the remote link
 
 h3. Page Design
 
@@ -69,7 +73,7 @@ p. Here you can edit the style that is associated to your tumblelog section.
 
 h3. Form Design
 
-p. Here you can edit the 4 forms used for your tumblelog.
+p. Here you can edit any forms used for your tumblelog.
 
 h3. Bookmarklet
 
@@ -153,7 +157,7 @@ function asv_cat_popup($Custom, $id, $name="")
 
 	if ($rs)
 	{
-		return treeSelectInput($name,$rs,$Custom, $id);
+		return treeSelectInput($id,$rs,$Custom, $id);
 	}
 
 	return false;
@@ -248,14 +252,15 @@ function asv_tumblelog_verifyTable()
 			`Category1` varchar(128) NOT NULL default '',
 			`Category2` varchar(128) NOT NULL default '',
 			`Keywords` varchar(255) NOT NULL default '',
+			`LastUpdate` datetime,
 			 PRIMARY KEY  (`ID`)
 			 ) $tabletype PACK_KEYS=1 AUTO_INCREMENT=2 ");
 			 
 		if($rs = safe_show('COLUMNS', 'asv_tumblelog_feeds'))
 		{
-			if(count($rs)!=11)
+			if(count($rs)!=12)
 			{
-				$design_col = array('ID', 'Favicon', 'Title', 'Feed', 'URL', 'Image', 'Annotate', 'Type', 'Category1', 'Category2', 'Keywords');
+				$design_col = array('ID', 'Favicon', 'Title', 'Feed', 'URL', 'Image', 'Annotate', 'Type', 'Category1', 'Category2', 'Keywords', 'LastUpdate');
 				$exist_col = array();
 				foreach($rs as $col)
 				{
@@ -299,6 +304,10 @@ function asv_tumblelog_verifyTable()
 						case 'Keywords':
 							safe_alter('asv_tumblelog_feeds', "ADD `Keywords` varchar(255) NOT NULL default ''");
 							break;
+						case 'LastUpdate':
+							safe_alter('asv_tumblelog_feeds', "ADD `LastUpdate` datetime");
+							break;
+							
 					}
 				}
 			}
@@ -328,7 +337,7 @@ EOD;
 		{
 			$video_id = $matches[2];
 $video_embed = <<<EOD
-<p><object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" width="437" height="370" id="viddler"><param name="movie" value="http://www.viddler.com/player/$video_id/" /><param name="allowScriptAccess" value="always" /><param name="allowFullScreen" value="true" /><embed src="http://www.viddler.com/player/$video_id/" width="437" height="370" type="application/x-shockwave-flash" allowScriptAccess="always" allowFullScreen="true" name="viddler" ></embed></object></p>
+<p><object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" width="400" height="370" id="viddler"><param name="movie" value="http://www.viddler.com/player/$video_id/" /><param name="allowScriptAccess" value="always" /><param name="allowFullScreen" value="true" /><embed src="http://www.viddler.com/player/$video_id/" width="400" height="370" type="application/x-shockwave-flash" allowScriptAccess="always" allowFullScreen="true" name="viddler" ></embed></object></p>
 EOD;
 			return $video_embed;
 		}
@@ -389,6 +398,9 @@ function asv_tumblelog($event, $step)
 		case 'mini':
 			asv_tumblelog_mini($step);
 			break;
+		case 'update':
+			asv_tumblelog_update($step);
+			break;
 	}
 }
 //--------------------------------------------------------------
@@ -401,18 +413,7 @@ function asv_tumblelog_mini($step)
 	extract($prefs);
 	extract(get_asv_tumblelog_prefs());
 
-	$incoming = lAtts(array(
-			'method'	=> '',
-			'formname' => '',
-			'sourceurl' => '',
-			'title'	=> '',
-			'body'	=> '',
-			'category1'	=> '',
-			'category2' 	=> '',
-			'keywords' => '',
-			'photourl'	=> '',
-			),
-				gpsa(array('method', 'formname', 'sourceurl', 'title', 'body', 'category1', 'category2', 'keywords', 'photourl')));
+	$incoming = gpsa(array('method', 'formname', 'sourceurl', 'title', 'body', 'category1', 'category2', 'keywords', 'photourl'));
 				
 	$incoming = asv_tumblelog_textile_main_fields($incoming, $use_textile);
 	extract(doSlash($incoming));
@@ -531,7 +532,7 @@ EOD;
 			{
 				$video_id = $matches[2];
 $video_embed = <<<EOD
-<p><object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" width="437" height="370" id="viddler"><param name="movie" value="http://www.viddler.com/player/$video_id/" /><param name="allowScriptAccess" value="always" /><param name="allowFullScreen" value="true" /><embed src="http://www.viddler.com/player/$video_id/" width="437" height="370" type="application/x-shockwave-flash" allowScriptAccess="always" allowFullScreen="true" name="viddler" ></embed></object></p>
+<p><object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" width="400" height="370" id="viddler"><param name="movie" value="http://www.viddler.com/player/$video_id/" /><param name="allowScriptAccess" value="always" /><param name="allowFullScreen" value="true" /><embed src="http://www.viddler.com/player/$video_id/" width="400" height="370" type="application/x-shockwave-flash" allowScriptAccess="always" allowFullScreen="true" name="viddler" ></embed></object></p>
 EOD;
 				$video_body = $video_embed;
 				$suggestion = 'video';
@@ -916,100 +917,70 @@ function asv_tumblelog_design($step)
 //--------------------------------------------------------------
 function asv_tumblelog_feeds($step)
 {
+	
 	asv_tumblelog_verifyTable();
 	
-	$types = array('post'=>'post', 'quote'=>'quote', 'photo'=>'photo', 'link'=>'link');
+	$types = array('post'=>'post', 'quote'=>'quote', 'photo'=>'photo', 'link'=>'link', 'video'=>'video');
 	
 	$message = '';
 	
-	extract(doSlash(lAtts(array(
-		'rsspath' => '',
-		'type'	=> '',
-		'comments' => '',
-		'category1' =>'',
-		'category2' => '',
-		'keywords'	=>'',
-		'ID' =>'',
-		'image' =>'',
-		'favicon' => '',
-		),
-		gpsa(array(
-			'rsspath', 
-			'type', 
-			'comments', 
-			'category1', 
-			'category2',
-			'image',
-			'keywords',
-			'ID',
-			'favicon',
-			)))));
+	extract(doSlash(gpsa(array('rsspath', 'type', 'comments', 'category1', 'category2', 'image', 'keywords', 'ID', 'favicon',))));
 				
 	extract(get_asv_tumblelog_prefs());
 	
-	if(gps('save_feeds'))
-	{
-		if($type)
-		{
-			list($title, $favicon, $url) = asv_tumblelog_verifyFeed($rsspath, $simplepie);
+	if(gps('save_feeds')){
 
-			if($title)
-			{
-				$title = doSlash($title);
+		if($type){
+
+			if($rsspath){
+			
+				list($title, $favicon, $url) = asv_tumblelog_verifyFeed($rsspath, $simplepie);
+	
+				if($title && $rsspath){
 				
-				if($ID)
-				{
-					safe_update('asv_tumblelog_feeds', 
-						"Feed = '$rsspath',
-						Title = '$title',
-						Type = '$type',
-						URL = '$url',
-						Image = '$image',
-						Favicon = '$favicon',
-						Category1 = '$category1',
-						Category2 = '$category2',
-						Keywords = '$keywords',
-						Annotate = '$comments'",
-						"ID = $ID"
-						);		
+					$title = doSlash($title);
+					
+					if(assert_int($ID)){
+						safe_update('asv_tumblelog_feeds', 
+							"Feed = '$rsspath',
+							Title = '$title',
+							Type = '$type',
+							URL = '$url',
+							Image = '$image',
+							Favicon = '$favicon',
+							Category1 = '$category1',
+							Category2 = '$category2',
+							Keywords = '$keywords',
+							Annotate = '$comments'",
+							"ID = $ID"
+							);		
+						$message = "Updated $title.";
+					} else{
+						safe_insert('asv_tumblelog_feeds', 
+							"Feed = '$rsspath',
+							Title = '$title',
+							Type = '$type',
+							Image = '$image',
+							URL = '$url',
+							Favicon = '$favicon',
+							Category1 = '$category1',
+							Category2 = '$category2',
+							Keywords = '$keywords',
+							Annotate = '$comments'"
+							);			
+						$message = "Added $title.";		
+					}
+				} else{
+					$message = "Not a valid feed.";
 				}
-				else
-				{
-					safe_insert('asv_tumblelog_feeds', 
-						"Feed = '$rsspath',
-						Title = '$title',
-						Type = '$type',
-						Image = '$image',
-						URL = '$url',
-						Favicon = '$favicon',
-						Category1 = '$category1',
-						Category2 = '$category2',
-						Keywords = '$keywords',
-						Annotate = '$comments'"
-						);					
-				}
-				extract(array(
-					'rsspath' => '',
-					'type'	=> '',
-					'comments' => '',
-					'category1' =>'',
-					'category2' => '',
-					'keywords'	=>'',
-					'ID' =>'',
-					'image' =>'',
-					'favicon' => '',
-					));
+			} else{
+				$message = "A feed is required.";
 			}
-			else
-			{
-				$message = "Not a valid feed.";
-			}
-		}
-		else
-		{
-			$message = "Type is required.  - $type -";
+		} else{
+			$message = "Type is required.";
 		}
 	}
+	
 	if(gps('action')=='delete')
 	{
 		$selected = ps('selected');
@@ -1077,6 +1048,7 @@ function asv_tumblelog_feeds($step)
 			n.column_head('Category1', 'category1', 'asv_tumblelog', false, '', '', '').
 			n.column_head('Category2', 'category1', 'asv_tumblelog', false, '', '', '').
 			n.column_head('Keywords', 'Keywords', 'asv_tumblelog', false, '', '', '').
+			n.column_head('Last Update', 'Last Update', 'asv_tumblelog', false, '', '', '').
 			hCell()
 		);
 	$rs = safe_rows_start("*", "asv_tumblelog_feeds", "1=1");
@@ -1112,6 +1084,7 @@ function asv_tumblelog_feeds($step)
 				td($Category1).
 				td($Category2).
 				td($Keywords).
+				td($LastUpdate).
 				td(fInput('checkbox', 'selected[]', $ID)));
 				
 		}
@@ -1196,32 +1169,43 @@ function asv_tumblelog_settings($step)
 	'<h3 style="text-align:center"><a href="http://'.$prefs['siteurl'].'/?asv_tumblelog_updatefeeds=1">manually update feeds</a></h3>';
 }
 //--------------------------------------------------------------
-if(gps('asv_tumblelog_updatefeeds')==1)
+function asv_tumblelog_update($step)
 {
-	
+	global $txp_user;
 	extract(get_asv_tumblelog_prefs());
-	$rs = safe_rows_start("*", "asv_tumblelog_feeds", "1=1");
+	if(gps('asv_tumblelog_updatefeed_id') && assert_int(gps('asv_tumblelog_updatefeed_id'))){
+		$rID = gps('asv_tumblelog_updatefeed_id');	
+		$where = "ID='".doSlash($rID)."'";
+	} else{
+		$where = "1=1";
+	}
+	
+	$rs = safe_rows_start("*", "asv_tumblelog_feeds", $where);
 	echo '<pre>';
 	if($rs)
 	{
 		while($a = nextRow($rs))
 		{
 			extract($a);
-			switch($Type)
-			{
-				case "post":
-					$form = $postform;
-					break;
-				case "quote":
-					$form = $quoteform;
-					break;
-				case "photo":
-					$form = $photoform;
-					break;
-				case "link":
-					$form = $linkform;
-					break;
+
+			safe_update('asv_tumblelog_feeds', 'LastUpdate = now()', "ID = '$ID'");
+
+			if(!$LastUpdate)
+				$LastUpdate='January 1, 1970';
+						
+			if(gps('asv_tumblelog_overridetime')==1){			
+			
+				if($txp_user){
+				
+					$LastUpdate = 'January 1, 1970';
+					
+					} else{
+					
+					echo "You must be logged in to run this command.";
+					die();
+				}
 			}
+				
 			echo asv_rssgrab(array(
 				'feed'	=> $Feed,
 				'simplepie' => $simplepie,
@@ -1235,7 +1219,55 @@ if(gps('asv_tumblelog_updatefeeds')==1)
 				'comments'	=> $Annotate,
 				'keywords'	=> $Keywords,
 				'feed_id_field'	=> $feed_id_field,
-				'feed_id' => $ID
+				'feed_id' => $ID,
+				'lastupdate' => $LastUpdate,
+				));
+		}
+	}
+	echo '</pre>';
+	exit();
+}
+//--------------------------------------------------------------
+if(gps('asv_tumblelog_updatefeeds')==1)
+{
+	global $txp_user;
+	extract(get_asv_tumblelog_prefs());
+	if(gps('asv_tumblelog_updatefeed_id') && assert_int(gps('asv_tumblelog_updatefeed_id'))){
+		$rID = gps('asv_tumblelog_updatefeed_id');	
+		$where = "ID='".doSlash($rID)."'";
+	} else{
+		$where = "1=1";
+	}
+	
+	$rs = safe_rows_start("*", "asv_tumblelog_feeds", $where);
+	echo '<pre>';
+	if($rs)
+	{
+		while($a = nextRow($rs))
+		{
+			extract($a);
+
+			safe_update('asv_tumblelog_feeds', 'LastUpdate = now()', "ID = '$ID'");
+
+			if(!$LastUpdate)
+				$LastUpdate='January 1, 1970';
+				
+				
+			echo asv_rssgrab(array(
+				'feed'	=> $Feed,
+				'simplepie' => $simplepie,
+				'type'	=> $Type,
+				'category1'	=> $Category1,
+				'category2' => $Category2,
+				'section'	=> $tumblelogsection,
+				'form'		=> $Type,
+				'linkfield'	=> $sourcelink,
+				'pubdate' => '',
+				'comments'	=> $Annotate,
+				'keywords'	=> $Keywords,
+				'feed_id_field'	=> $feed_id_field,
+				'feed_id' => $ID,
+				'lastupdate' => $LastUpdate,
 				));
 		}
 	}
@@ -1318,7 +1350,8 @@ function asv_rssgrab($atts)
 			'comments'	=> 'on',
 			'keywords'	=> '',
 			'feed_id_field' => '',
-			'feed_id' =>''
+			'feed_id' =>'',
+			'lastupdate' => 'January 1, 1970'
 			),$atts));
 			
 	$message = '';		
@@ -1342,190 +1375,200 @@ function asv_rssgrab($atts)
 		$feeditems = $thefeed->get_items();
 		$favicon = $thefeed->get_favicon();
 		$message .= "\tFavicon - ".$favicon."\r\n";
-		foreach($feeditems as $feeditem) {			
-			//Get the permalink
-			$out['permalink'] = $feeditem->get_link();		
-			
-			// Get item title
-			$out['title'] = addslashes(asv_tumblelog_trimtwitter($feeditem->get_title(), $out['permalink'], true));
-			
-			
-			//Get the image
-			$out['image'] = $favicon;
-			
-			// Check and retrieve date
-			if($pubdate!='')
+		foreach($feeditems as $feeditem) {
+			if($feeditem->get_date('U') > strtotime($lastupdate))
 			{
-				$dateTaken = $feeditem->get_item_tags('http://purl.org/dc/elements/1.1/', 'date.Taken');
-				print_r($dateTaken[0]['data']);
-				die("not yet implemented");		
-			}
-			elseif($feeditem->get_date()) {
-				$out["posted"] = $feeditem->get_date('U');
-				$when = "from_unixtime(".$out['posted'].")";
-			}
-			else
-			{
-				$when = 'now()';
-			}	
-			
-			//Get the body
-			/*if($type=="media")
-			{
-				$encs = $feeditem->get_enclosures();
-				foreach($encs as $enclosure)
-				{
-					print_r($enclosure);
-					if(!is_null($enclosure->get_link())){
-						$enc_link = $enclosure->get_link();
-					}
-					else
-					{
-						$enc_link = $enc_link;
-					}
-					$enc_link = str_replace('&amp;', '&', $enc_link);
-					$out['body'] = '<p><object type="application/x-shockwave-flash" width="506" height="414" data="'.$enc_link.'">
-	                                    <param name="quality" value="high" />
-	                                    <param name="allowfullscreen" value="true" />
-	                                    <param name="scale" value="showAll" />
-	                                    <param name="movie" value="'.$enc_link.'" />
-	                                </object><p>';
-				}
-			}*/
-			$image = '';
-			if($out['image'])
-			{
-				if(!defined("IMPATH")) define("IMPATH",$path_to_site.'/'.$img_dir.'/');
-				$feedDescription = $feeditem->get_content();
-				$image = returnImage($feedDescription);
-				$image = urldecode(scrapeImage($image));
-				//Check to see if it needs to be imported into TXP Image
-				if($out['image'] == '2')
-				{			
-					//get extension
-					$ext = strrchr($image, '.');
-					$check = safe_field('ID', 'txp_image', "NAME = '".$out['title']."' AND DATE = $when");		
-					if($check)
-					{
-						$imageID = $check;
-					}
-					else
-					{
-						safe_insert('txp_image',
-							"name = '".$out['title']."',
-							ext = '$ext',
-							date = $when"
-						);
-						$imageID = mysql_insert_id();
-						// create a new curl resource
-						$ch = curl_init();
-						// set URL and other appropriate options
-						curl_setopt($ch, CURLOPT_URL, "$image");
-						curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-						// grab URL, and return output
-						$output = curl_exec($ch);
-						// close curl resource, and free up system resources
-						curl_close($ch);
-						//write to file
-						$filename = IMPATH.basename($image);				
-						$fh = fopen(IMPATH.$imageID.$ext, 'w');
-						fwrite($fh, $output);
-						fclose($fh);
-						$shortpath = basename($image);
-						$message .= "\tImported $filename\r\n";
-					}
-					$image = "http://".$prefs['siteurl']."/".$img_dir.'/'.$imageID.$ext;
-				}
-			}
-			
-			if(!beginsWith($feeditem->get_description(), "<p"))
-			{
-				$out['body'] = dotag(doSlash(asv_tumblelog_trimtwitter($feeditem->get_description(), $out['permalink'], false)), 'p');
-			}
-			else
-			{
-				$out['body'] = doSlash(asv_tumblelog_trimtwitter($feeditem->get_description(), $out['permalink'], false));
-			}		
-
-			//Check to see if the article has already been imported
-			$exists = safe_count('textpattern', "Title = '".$out['title']."' AND Posted=$when AND Section='$section'");
-			
-			//If it hasn't then let's add it
-			if($exists==0){
-				//Check to see if category1 exists
-				if($category1 && !fetch_category_title($category1))
-				{
-					//Create new category
-					$name = sanitizeForUrl($category1);
-					$exists = safe_field('name', 'txp_category', "name = '".doSlash($name)."' and type = 'article'");
-					if (!$exists)
-					{
-						$q = safe_insert('txp_category', "name = '".doSlash($name)."', title = '".doSlash($category1)."', type = 'article', parent = 'root'");
-						rebuild_tree('root', 1, 'article');
-					}
-				}
-				//Check to see if category2 exists
-				if($category2 && !fetch_category_title($category2))
-				{
-					//Create new category
-					$name = sanitizeForUrl($category2);
-					$exists = safe_field('name', 'txp_category', "name = '".doSlash($name)."' and type = 'article'");
-					if (!$exists)
-					{
-						$q = safe_insert('txp_category', "name = '".doSlash($name)."', title = '".doSlash($category2)."', type = 'article', parent = 'root'");
-						rebuild_tree('root', 1, 'article');
-					}
-				}
+				//Get the permalink
+				$out['permalink'] = $feeditem->get_link();		
 				
-				//Get custom field
-				$message .= "\t\t$linkfield - custom\r\n";
-				$custom_row = safe_row("*", 'txp_prefs', "val='$linkfield'");
-				if($custom_row)
+				// Get item title
+				$out['title'] = addslashes(asv_tumblelog_trimtwitter($feeditem->get_title(), $out['permalink'], true));
+				
+				
+				//Get the image
+				$out['image'] = $favicon;
+				
+				// Check and retrieve date
+				if($pubdate!='')
 				{
-					$linkfield_set = 'custom_'.$custom_row['position'];
+					$dateTaken = $feeditem->get_item_tags('http://purl.org/dc/elements/1.1/', 'date.Taken');
+					print_r($dateTaken[0]['data']);
+					die("not yet implemented");		
+				}
+				elseif($feeditem->get_date()) {
+					$out["posted"] = $feeditem->get_date('U');
+					$when = "from_unixtime(".$out['posted'].")";
 				}
 				else
 				{
-					$linkfield_set = "custom_1";
-				}
-				$result = safe_insert("textpattern",
-					"Title           = '".$out['title']."',
-					Body            = '".$out['body']."',
-					Body_html       = '".$out['body']."',
-					Excerpt         = '',
-					Excerpt_html    = '',
-					Image           = '".$image."',
-					Keywords        = '$keywords',
-					Status          =  4,
-					Posted          =  $when,
-					LastMod         =  now(),
-					AuthorID        = '$txp_user',
-					Section         = '$section',
-					Category1       = '$category1',
-					Category2       = '$category2',
-					textile_body    =  0,
-					textile_excerpt =  0,
-					Annotate        =  1,
-					override_form   = '$form',
-					url_title       = '',
-					$linkfield_set 		= '".$out['permalink']."',
-					AnnotateInvite  = 'comments',
-					uid             = '".md5(uniqid(rand(),true))."',
-					feed_time       = $when, ".
-					(($tempField = asv_tumblelog_getCustomField($feed_id_field))? "$tempField = '$feed_id'" : "''")
-					
-				);
+					$when = 'now()';
+				}	
 				
-				if($result)				
+				//Get the body
+				/*if($type=="media")
 				{
-					//do_pings();
-					update_lastmod();
-					$message .= "\tAdded - ".$out['title']."\r\n";
+					$encs = $feeditem->get_enclosures();
+					foreach($encs as $enclosure)
+					{
+						print_r($enclosure);
+						if(!is_null($enclosure->get_link())){
+							$enc_link = $enclosure->get_link();
+						}
+						else
+						{
+							$enc_link = $enc_link;
+						}
+						$enc_link = str_replace('&amp;', '&', $enc_link);
+						$out['body'] = '<p><object type="application/x-shockwave-flash" width="506" height="414" data="'.$enc_link.'">
+											<param name="quality" value="high" />
+											<param name="allowfullscreen" value="true" />
+											<param name="scale" value="showAll" />
+											<param name="movie" value="'.$enc_link.'" />
+										</object><p>';
+					}
+				}*/
+				$image = '';
+				if($out['image'])
+				{
+					if(!defined("IMPATH")) define("IMPATH",$path_to_site.'/'.$img_dir.'/');
+					$feedDescription = $feeditem->get_content();
+					$image = returnImage($feedDescription);
+					$image = urldecode(scrapeImage($image));
+					if(strstr($image, "flickr.com"))
+						$image = str_replace("_m.jpg", ".jpg", $image);
+					//Check to see if it needs to be imported into TXP Image
+					if($out['image'] == '2')
+					{			
+						//get extension
+						$ext = strrchr($image, '.');
+						$check = safe_field('ID', 'txp_image', "NAME = '".$out['title']."' AND DATE = $when");		
+						if($check)
+						{
+							$imageID = $check;
+						}
+						else
+						{
+							safe_insert('txp_image',
+								"name = '".$out['title']."',
+								ext = '$ext',
+								date = $when"
+							);
+							$imageID = mysql_insert_id();
+							// create a new curl resource
+							$ch = curl_init();
+							// set URL and other appropriate options
+							curl_setopt($ch, CURLOPT_URL, "$image");
+							curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+							// grab URL, and return output
+							$output = curl_exec($ch);
+							// close curl resource, and free up system resources
+							curl_close($ch);
+							//write to file
+							$filename = IMPATH.basename($image);				
+							$fh = fopen(IMPATH.$imageID.$ext, 'w');
+							fwrite($fh, $output);
+							fclose($fh);
+							$shortpath = basename($image);
+							$message .= "\tImported $filename\r\n";
+						}
+						$image = "http://".$prefs['siteurl']."/".$img_dir.'/'.$imageID.$ext;
+					}
+				}
+				
+				if(!beginsWith($feeditem->get_description(), "<p"))
+				{
+					$out['body'] = tag(doSlash(asv_tumblelog_trimtwitter($feeditem->get_description(), $out['permalink'], false)), 'p');
+				}
+				else
+				{
+					$out['body'] = doSlash(asv_tumblelog_trimtwitter($feeditem->get_description(), $out['permalink'], false));
+				}		
+	
+				//Check to see if the article has already been imported
+				$exists = safe_count('textpattern', "Title = '".$out['title']."' AND Posted=$when AND Section='$section'");
+				
+				//If it hasn't then let's add it
+				if($exists==0){
+					//Check to see if category1 exists
+					if($category1 && !fetch_category_title($category1))
+					{
+						//Create new category
+						$name = sanitizeForUrl($category1);
+						$exists = safe_field('name', 'txp_category', "name = '".doSlash($name)."' and type = 'article'");
+						if (!$exists)
+						{
+							$q = safe_insert('txp_category', "name = '".doSlash($name)."', title = '".doSlash($category1)."', type = 'article', parent = 'root'");
+							rebuild_tree('root', 1, 'article');
+						}
+					}
+					//Check to see if category2 exists
+					if($category2 && !fetch_category_title($category2))
+					{
+						//Create new category
+						$name = sanitizeForUrl($category2);
+						$exists = safe_field('name', 'txp_category', "name = '".doSlash($name)."' and type = 'article'");
+						if (!$exists)
+						{
+							$q = safe_insert('txp_category', "name = '".doSlash($name)."', title = '".doSlash($category2)."', type = 'article', parent = 'root'");
+							rebuild_tree('root', 1, 'article');
+						}
+					}
+					
+					//Get custom field
+					$message .= "\t\t$linkfield - custom\r\n";
+					$custom_row = safe_row("*", 'txp_prefs', "val='$linkfield'");
+					if($custom_row)
+					{
+						$linkfield_set = 'custom_'.$custom_row['position'];
+					}
+					else
+					{
+						$linkfield_set = "custom_1";
+					}
+					$result = safe_insert("textpattern",
+						"Title           = '".$out['title']."',
+						Body            = '".$out['body']."',
+						Body_html       = '".$out['body']."',
+						Excerpt         = '',
+						Excerpt_html    = '',
+						Image           = '".$image."',
+						Keywords        = '$keywords',
+						Status          =  4,
+						Posted          =  $when,
+						LastMod         =  now(),
+						AuthorID        = '$txp_user',
+						Section         = '$section',
+						Category1       = '$category1',
+						Category2       = '$category2',
+						textile_body    =  0,
+						textile_excerpt =  0,
+						Annotate        =  1,
+						override_form   = '$form',
+						url_title       = '',
+						$linkfield_set 		= '".$out['permalink']."',
+						AnnotateInvite  = 'comments',
+						uid             = '".md5(uniqid(rand(),true))."',
+						feed_time       = $when, ".
+						(($tempField = asv_tumblelog_getCustomField($feed_id_field))? "$tempField = '$feed_id'" : "''")
+						
+					);
+					
+					if($result)				
+					{
+						//do_pings();
+						update_lastmod();
+						$message .= "\tAdded - ".$out['title']."\r\n";
+					}
+				}
+				else
+				{
+					$message .= "\tExists - ".$out['title']."\r\n";
 				}
 			}
 			else
 			{
-				$message .= "\tExists - ".$out['title']."\r\n";
+				$message.= "\tNot importing ".$feeditem->get_title()."\r\n";
+				$message.= "\t".$feeditem->get_date('U')."\t".strtotime($lastupdate)."\r\n";
 			}
 		}
 	}
