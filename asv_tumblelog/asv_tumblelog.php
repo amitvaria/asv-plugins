@@ -10,7 +10,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'asv_tumblelog';
 
-$plugin['version'] = '1.5.2';
+$plugin['version'] = '1.5.3';
 $plugin['author'] = 'Amit Varia';
 $plugin['author_uri'] = 'http://www.amitvaria.com/';
 $plugin['description'] = 'Implementing the greatness of tumblelogs';
@@ -91,7 +91,7 @@ p. You'll learn that you have a lot of room for flexibility and customization wi
 if (@txpinterface == 'admin')
 {
 	add_privs('asv_tumblelog','1,2,3,4'); // Allow only userlevels 1,2,3,4 acess to this plugin.
-	register_tab('extensions', 'asv_tumblelog', "Tumblelog");
+	register_tab('content', 'asv_tumblelog', "Tumblelog");
 	register_callback("asv_tumblelog", "asv_tumblelog");
 }
 
@@ -651,7 +651,7 @@ EOD;
 		n.hInput('method', 'link').
 		n.hInput('bm', '1');
 				
-		echo startTable('asv_tumblelog_link', 'center').
+		echo startTable('asv_tumblelog_link').
 			tr(
 				td(			
 					startTable('list').
@@ -955,7 +955,7 @@ function asv_tumblelog_feeds($step)
 	
 	$message = '';
 	
-	extract(doSlash(gpsa(array('rsspath', 'type', 'comments', 'category1', 'category2', 'image', 'keywords', 'ID', 'favicon',))));
+	extract(doSlash(gpsa(array('rsspath', 'type', 'comments', 'category1', 'category2', 'asv_image', 'keywords', 'ID', 'favicon',))));
 				
 	extract(get_asv_tumblelog_prefs());
 	
@@ -979,7 +979,7 @@ function asv_tumblelog_feeds($step)
 								Title = '$title',
 								Type = '$type',
 								URL = '$url',
-								Image = '$image',
+								Image = '$asv_image',
 								Favicon = '$favicon',
 								Category1 = '$category1',
 								Category2 = '$category2',
@@ -993,7 +993,7 @@ function asv_tumblelog_feeds($step)
 								"Feed = '$rsspath',
 								Title = '$title',
 								Type = '$type',
-								Image = '$image',
+								Image = '$asv_image',
 								URL = '$url',
 								Favicon = '$favicon',
 								Category1 = '$category1',
@@ -1035,6 +1035,10 @@ function asv_tumblelog_feeds($step)
 		
 		pagetop('Tumblelog', $message);
 			
+		$checked_image = array(false, false, false);
+		if($asv_image) { $checked_image[$asv_image] = true; }
+		else { $checked_image[0] = true; }
+			
 		echo n.n.'<form name="tumblelog-admin" method="post" action="index.php?event=asv_tumblelog&step=Feeds">'.
 		hInput('step', 'Feeds').
 		hInput('ID', $ID);
@@ -1047,7 +1051,7 @@ function asv_tumblelog_feeds($step)
 			
 				tr(td('Atom/RSS Path').td(fInput('text', 'rsspath', $rsspath))).
 				
-				tr(td('Import Images').td(radio('image', '0').'no '.radio('image', '1', false).'url '.radio('image', '2', false).'image')).
+				tr(td('Import Images').td(radio('asv_image', '0', $checked_image[0]).'no '.radio('asv_image', '1', $checked_image[1]).'url '.radio('asv_image', '2', $checked_image[2]).'image')).
 				
 				tr(td('Form').td(asv_form_popup($type, 'type'))).
 				
@@ -1090,7 +1094,7 @@ function asv_tumblelog_feeds($step)
 			while($a = nextRow($rs))
 			{
 				extract($a);
-				$link = "<a href=\"index.php?event=asv_tumblelog&step=Feeds&rsspath=".urlencode($Feed)."&type=".$Type."&comments=".$a['Annotate']."&category1=$Category1&category2=$Category2&keywords=$Keywords&ID=$ID\">$Title</a>";
+				$link = "<a href=\"index.php?event=asv_tumblelog&step=Feeds&rsspath=".urlencode($Feed)."&asv_image=".$Image."&type=".$Type."&comments=".$a['Annotate']."&category1=$Category1&category2=$Category2&keywords=$Keywords&ID=$ID\">$Title</a>";
 				
 				switch($Image)
 				{
@@ -1260,7 +1264,7 @@ function asv_tumblelog_update($step)
 				'pubdate' => '',
 				'comments'	=> $Annotate,
 				'keywords'	=> $Keywords,
-				'feed_id_field'	=> $feed_id_field,
+				'feed_id_field'	=> $asv_tumblelog_feed_id_field,
 				'feed_id' => $ID,
 				'lastupdate' => $LastUpdate,
 				));
@@ -1310,6 +1314,7 @@ if(gps('asv_tumblelog_updatefeeds')==1)
 				'feed_id_field'	=> $asv_tumblelog_feed_id_field,
 				'feed_id' => $ID,
 				'lastupdate' => $LastUpdate,
+				'importimage' => $Image
 				));
 		}
 	}
@@ -1393,7 +1398,8 @@ function asv_rssgrab($atts)
 			'keywords'	=> '',
 			'feed_id_field' => '',
 			'feed_id' =>'',
-			'lastupdate' => 'January 1, 1970'
+			'lastupdate' => 'January 1, 1970',
+			'importimage' => '0'
 			),$atts));
 			
 	$message = '';		
@@ -1469,53 +1475,8 @@ function asv_rssgrab($atts)
 										</object><p>';
 					}
 				}*/
-				$image = '';
-				if($out['image'])
-				{
-					if(!defined("IMPATH")) define("IMPATH",$path_to_site.'/'.$img_dir.'/');
-					$feedDescription = $feeditem->get_content();
-					$image = returnImage($feedDescription);
-					$image = urldecode(scrapeImage($image));
-					if(strstr($image, "flickr.com"))
-						$image = str_replace("_m.jpg", ".jpg", $image);
-					//Check to see if it needs to be imported into TXP Image
-					if($out['image'] == '2')
-					{			
-						//get extension
-						$ext = strrchr($image, '.');
-						$check = safe_field('ID', 'txp_image', "NAME = '".$out['title']."' AND DATE = $when");		
-						if($check)
-						{
-							$imageID = $check;
-						}
-						else
-						{
-							safe_insert('txp_image',
-								"name = '".$out['title']."',
-								ext = '$ext',
-								date = $when"
-							);
-							$imageID = mysql_insert_id();
-							// create a new curl resource
-							$ch = curl_init();
-							// set URL and other appropriate options
-							curl_setopt($ch, CURLOPT_URL, "$image");
-							curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-							// grab URL, and return output
-							$output = curl_exec($ch);
-							// close curl resource, and free up system resources
-							curl_close($ch);
-							//write to file
-							$filename = IMPATH.basename($image);				
-							$fh = fopen(IMPATH.$imageID.$ext, 'w');
-							fwrite($fh, $output);
-							fclose($fh);
-							$shortpath = basename($image);
-							$message .= "\tImported $filename\r\n";
-						}
-						$image = "http://".$prefs['siteurl']."/".$img_dir.'/'.$imageID.$ext;
-					}
-				}
+				
+
 				
 				if(!beginsWith($feeditem->get_description(), "<p"))
 				{
@@ -1531,6 +1492,55 @@ function asv_rssgrab($atts)
 				
 				//If it hasn't then let's add it
 				if($exists==0){
+					//Import the image
+					$image = '';
+					if($importimage)
+					{
+						if(!defined("IMPATH")) define("IMPATH",$path_to_site.'/'.$img_dir.'/');
+						$feedDescription = $feeditem->get_content();
+						$image = returnImage($feedDescription);
+						$image = urldecode(scrapeImage($image));
+						if(strstr($image, "flickr.com"))
+							$image = str_replace("_m.jpg", ".jpg", $image);
+						//Check to see if it needs to be imported into TXP Image
+						if($importimage == '2')
+						{			
+							//get extension
+							$ext = strrchr($image, '.');
+							$check = safe_field('ID', 'txp_image', "NAME = '".$out['title']."' AND DATE = $when");		
+							if($check)
+							{
+								$imageID = $check;
+							}
+							else
+							{
+								safe_insert('txp_image',
+									"name = '".$out['title']."',
+									ext = '$ext',
+									date = $when"
+								);
+								$imageID = mysql_insert_id();
+								// create a new curl resource
+								$ch = curl_init();
+								// set URL and other appropriate options
+								curl_setopt($ch, CURLOPT_URL, "$image");
+								curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+								// grab URL, and return output
+								$output = curl_exec($ch);
+								// close curl resource, and free up system resources
+								curl_close($ch);
+								//write to file
+								$filename = IMPATH.basename($image);				
+								$fh = fopen(IMPATH.$imageID.$ext, 'w');
+								fwrite($fh, $output);
+								fclose($fh);
+								$shortpath = basename($image);
+								$message .= "\tImported $filename\r\n";
+							}
+							$image = "http://".$prefs['siteurl']."/".$img_dir.'/'.$imageID.$ext;
+						}
+					}
+								
 					//Check to see if category1 exists
 					if($category1 && !fetch_category_title($category1))
 					{
