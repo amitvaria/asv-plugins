@@ -10,7 +10,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'asv_tumblelog';
 
-$plugin['version'] = '1.3';
+$plugin['version'] = '1.4';
 $plugin['author'] = 'Amit Varia';
 $plugin['author_uri'] = 'http://www.amitvaria.com/';
 $plugin['description'] = 'Implementing the greatness of tumblelogs';
@@ -176,6 +176,7 @@ function get_asv_tumblelog_prefs()
 			'quoteform'	=> '',
 			'photoform'	=> '',
 			'linkform' 	=> '',
+			'videoform' => '',
 			'rssfeedpage' => '',
 			'feed_id_field' => '',
 			),$out);
@@ -305,18 +306,38 @@ function asv_tumblelog_verifyTable()
 	}
 }
 //--------------------------------------------------------------
-function asv_tumblelog_trimtwitter($input, $source, $check_array)
+function asv_tumblelog_trimtwitter($input, $source, $title)
 {
-	if(strstr($source, "twitter.com") && in_array('twitter', $check_array))
+	if(strstr($source, "twitter.com"))
 	{
 		return preg_replace('/(\w+:) (\.*)/', '$2', $input);
 	}
-	elseif(strstr($source, "vimeo.com") && in_array('vimeo', $check_array))
+	elseif(strstr($source, "vimeo.com") && !$title)
 	{
 		$video_id = substr(strrchr($source, '/'), 1);
 		
 $video_embed = <<<EOD
-<object type="application/x-shockwave-flash" width="400" height="327" data="http://www.vimeo.com/moogaloop.swf?clip_id=$video_id&amp;server=www.vimeo.com&amp;fullscreen=1&amp;show_title=1&amp;show_byline=1&amp;show_portrait=0&amp;color=01AAEA">	<param name="quality" value="best" />	<param name="allowfullscreen" value="true" />	<param name="scale" value="showAll" />	<param name="movie" value="http://www.vimeo.com/moogaloop.swf?clip_id=$video_id&amp;server=www.vimeo.com&amp;fullscreen=1&amp;show_title=1&amp;show_byline=1&amp;show_portrait=0&amp;color=01AAEA" /></object>
+<p><object type="application/x-shockwave-flash" width="400" height="327" data="http://www.vimeo.com/moogaloop.swf?clip_id=$video_id&amp;server=www.vimeo.com&amp;fullscreen=1&amp;show_title=1&amp;show_byline=1&amp;show_portrait=0&amp;color=01AAEA">	<param name="quality" value="best" />	<param name="allowfullscreen" value="true" />	<param name="scale" value="showAll" />	<param name="movie" value="http://www.vimeo.com/moogaloop.swf?clip_id=$video_id&amp;server=www.vimeo.com&amp;fullscreen=1&amp;show_title=1&amp;show_byline=1&amp;show_portrait=0&amp;color=01AAEA" /></object></p>
+EOD;
+		return $video_embed;
+	}
+	elseif(strstr($source, "viddler.com") && !$title)
+	{		
+		preg_match('/(.*?)[\\?&]token=(\w*)(.*)/', str_replace(array("\n", "\r", "\t", " ", "\o", "\xOB"), '', $input), $matches);
+		if($matches)
+		{
+			$video_id = $matches[2];
+$video_embed = <<<EOD
+<p><object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" width="437" height="370" id="viddler"><param name="movie" value="http://www.viddler.com/player/$video_id/" /><param name="allowScriptAccess" value="always" /><param name="allowFullScreen" value="true" /><embed src="http://www.viddler.com/player/$video_id/" width="437" height="370" type="application/x-shockwave-flash" allowScriptAccess="always" allowFullScreen="true" name="viddler" ></embed></object></p>
+EOD;
+			return $video_embed;
+		}
+	}
+	elseif(strstr($source, "youtube.com"))
+	{
+		$video_id = preg_replace('/(.*?)[\\?&]v=([^\&#]*).*/', '$2',$source);
+$video_embed = <<<EOD
+<p><object width="425" height="355"><param name="movie" value="http://www.youtube.com/v/$video_id&rel=1"></param><param name="wmode" value="transparent"></param><embed src="http://www.youtube.com/v/$video_id&rel=1" type="application/x-shockwave-flash" wmode="transparent" width="425" height="355"></embed></object></p>
 EOD;
 		return $video_embed;
 	}
@@ -331,7 +352,7 @@ function asv_tumblelog_textile_main_fields($incoming, $use_textile)
 	$textile = new Textile();
 	
 	$incoming['title_plain'] = $incoming['title'];	
-	$incoming['body_html'] = $textile->TextileThis($incoming['body']);
+	$incoming['body_html'] = $textile->TextileThis(nl2br($incoming['body']));
 	$incoming['title'] = $textile->TextileThis($incoming['title'],'',1);
 	
 	return $incoming;
@@ -455,28 +476,105 @@ function asv_tumblelog_mini($step)
 
 	pagetop('Post to Tumblelog', $message);
 	
-
-	?>
-	<script type="text/javascript">
-		function asv_tumblelog_mini_choose(id){
-			$('#asv_tumblelog_link').hide();
-			$('#asv_tumblelog_post').hide();
-			$('#asv_tumblelog_photo').hide();
-			$('#asv_tumblelog_quote').hide();
-
-			$(id).show();
+	//Grab contents of url
+	$output = '';
+	if($sourceurl)
+	{
+		// create a new curl resource
+		$ch = curl_init();
+		// set URL and other appropriate options
+		curl_setopt($ch, CURLOPT_URL, $sourceurl);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+		// grab URL, and return output
+		$output = curl_exec($ch);
+		//get errors		
+		$err     = curl_errno( $ch );
+		$errmsg  = curl_error( $ch );
+		// close curl resource, and free up system resources
+		curl_close($ch);
+	}
+	
+	$suggestion = 'link';
+	$video_body = '';
+	if($body) 
+		$suggestion = 'quote';
+		
+	if($output)
+	{
+		if(strstr($sourceurl, "flickr.com"))
+		{
+			$pic_id = preg_replace('/(.*)\/photos\/(.*)\/(\w+)\//', '$3', $sourceurl);
+			$flat_output = ereg_replace("[\n\r\t]", " ", $output);
+		    preg_match_all("/<img[^>]+\>/", $flat_output , $photo_matches);
+		    foreach($photo_matches[0] as $match)
+		    {
+		    	if(strstr($match, $pic_id))
+		    	{
+		    		$photourl = str_replace('.jpg', '_m.jpg', urldecode(scrapeImage($match)));
+		    		$suggestion = 'photo';
+		    	}
+		    }
 		}
-		$(document).ready(function() {
-			asv_tumblelog_mini_choose('#asv_tumblelog_post');
-		});
-	</script>	
+		elseif(strstr($sourceurl, "vimeo.com"))
+		{
+			$video_id = substr(strrchr($sourceurl, '/'), 1);		
+$video_embed = <<<EOD
+<p><object type="application/x-shockwave-flash" width="400" height="327" data="http://www.vimeo.com/moogaloop.swf?clip_id=$video_id&amp;server=www.vimeo.com&amp;fullscreen=1&amp;show_title=1&amp;show_byline=1&amp;show_portrait=0&amp;color=01AAEA">	<param name="quality" value="best" />	<param name="allowfullscreen" value="true" />	<param name="scale" value="showAll" />	<param name="movie" value="http://www.vimeo.com/moogaloop.swf?clip_id=$video_id&amp;server=www.vimeo.com&amp;fullscreen=1&amp;show_title=1&amp;show_byline=1&amp;show_portrait=0&amp;color=01AAEA" /></object></p>
+EOD;
+			$video_body = ($video_id)?$video_embed:$body;
+			$suggestion = 'video';
+		}
+		elseif(strstr($sourceurl, "viddler.com"))
+		{
+			preg_match('/(.*?)[\\?&]token=(\w*)(.*)/', str_replace(array("\n", "\r", "\t", " ", "\o", "\xOB"), '', nl2br($output)), $matches);
+			if($matches)
+			{
+				$video_id = $matches[2];
+$video_embed = <<<EOD
+<p><object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" width="437" height="370" id="viddler"><param name="movie" value="http://www.viddler.com/player/$video_id/" /><param name="allowScriptAccess" value="always" /><param name="allowFullScreen" value="true" /><embed src="http://www.viddler.com/player/$video_id/" width="437" height="370" type="application/x-shockwave-flash" allowScriptAccess="always" allowFullScreen="true" name="viddler" ></embed></object></p>
+EOD;
+				$video_body = $video_embed;
+				$suggestion = 'video';
+			}
+		}
+		elseif(strstr($sourceurl, "youtube.com"))
+		{
+			$video_id = preg_replace('/(.*?)[\\?&]v=([^\&#]*).*/', '$2',$sourceurl);
+$video_embed = <<<EOD
+<p><object width="425" height="355"><param name="movie" value="http://www.youtube.com/v/$video_id&rel=1"></param><param name="wmode" value="transparent"></param><embed src="http://www.youtube.com/v/$video_id&rel=1" type="application/x-shockwave-flash" wmode="transparent" width="425" height="355"></embed></object></p>
+EOD;
+			$video_body = ($video_id)?$video_embed:$body;
+			$suggestion = 'video';
+		}
+	}
+	
+	
+echo <<<EOD
+<script type="text/javascript">
+	function asv_tumblelog_mini_choose(id){
+		$('#asv_tumblelog_link').hide();
+		$('#asv_tumblelog_post').hide();
+		$('#asv_tumblelog_photo').hide();
+		$('#asv_tumblelog_quote').hide();
+		$('#asv_tumblelog_video').hide();
 
-	<?php
+		$(id).show();
+	}
+	$(document).ready(function() {
+		asv_tumblelog_mini_choose('#asv_tumblelog_$suggestion');
+	});
+</script>	
+
+EOD;
+	
+	$title = stripslashes($title);
+	$body = str_replace("\\n", "\n", $body);
 	
 	echo tag('<a href="#" onclick="asv_tumblelog_mini_choose(\'#asv_tumblelog_post\');">post</a> | '.
 		 '<a href="#" onclick="asv_tumblelog_mini_choose(\'#asv_tumblelog_quote\');">quote</a> | '.
 		 '<a href="#" onclick="asv_tumblelog_mini_choose(\'#asv_tumblelog_link\');">link</a> | '.
-		 '<a href="#" onclick="asv_tumblelog_mini_choose(\'#asv_tumblelog_photo\');">photo</a>',
+		 '<a href="#" onclick="asv_tumblelog_mini_choose(\'#asv_tumblelog_photo\');">photo</a> | '.
+		 '<a href="#" onclick="asv_tumblelog_mini_choose(\'#asv_tumblelog_video\');">video</a>',
 		 	'h1', ' style="text-align:center"');
 	
 	//post
@@ -586,6 +684,36 @@ function asv_tumblelog_mini($step)
 					tr(td('Source URL').td(fInput('text', 'sourceurl', $sourceurl, '', '', '', '50'))).
 					tr(td('Title').td(fInput('text', 'title', $title, '', '', '', '50'))).
 					tr(td('Post').td(text_area('body', '100', '250', $body))).
+					tr(tda(fInput('submit', 'save', 'post', 'publish'), ' colspan=2 style="text-align: right"')).
+					endTable()
+				).
+				td(
+					startTable('list').
+						tr(td()).
+						tr(td('Category 1<br />'.asv_cat_popup($category1,'category1'))).
+						tr(td('Category 2<br />'.asv_cat_popup($category2,'category2'))).
+						tr(td('Keywords<br />'.fInput('text', 'keywords', ''))).
+					endTable()
+				));	
+	echo '</form></body></html>';
+	
+	//video
+	echo '<form id="" name="video" method="post" action="index.php">'.
+		n.hInput('event', 'asv_tumblelog').
+		n.hInput('step', 'mini').
+		n.hInput('action', 'create').
+		n.hInput('method', 'video').
+		n.hInput('bm', '1');
+				
+		echo startTable('asv_tumblelog_video', 'center').
+			tr(
+				td(			
+					startTable('list').
+					tr(tda('Add a new video', ' colspan=2')).
+					tr(td('Form').td(asv_form_popup($videoform, 'formname'))).
+					tr(td('Source URL').td(fInput('text', 'sourceurl', $sourceurl, '', '', '', '50'))).
+					tr(td('Title').td(fInput('text', 'title', $title, '', '', '', '50'))).
+					tr(td('Post').td(text_area('body', '100', '250', $video_body))).
 					tr(tda(fInput('submit', 'save', 'post', 'publish'), ' colspan=2 style="text-align: right"')).
 					endTable()
 				).
@@ -899,7 +1027,7 @@ function asv_tumblelog_feeds($step)
 			$changed = join(', ', $ids);
 			$message = "Removed $changed";
 		}
-	}	
+	}
 	
 	pagetop('Tumblelog', $message);
 		
@@ -999,7 +1127,7 @@ function asv_tumblelog_settings($step)
 	
 	if(gps('save_settings'))
 	{
-		extract(gpsa(array('feed_id_field', 'sourcelink', 'tumblelogsection', 'simplepie', 'linkform', 'postform', 'quoteform', 'photoform')));
+		extract(gpsa(array('feed_id_field', 'sourcelink', 'tumblelogsection', 'simplepie', 'linkform', 'postform', 'quoteform', 'photoform', 'videoform')));
 		
 		($sourcelink)? set_pref('sourcelink', $sourcelink, 'asv_tumblelog', ''):''; 
 		
@@ -1016,6 +1144,8 @@ function asv_tumblelog_settings($step)
 		($photoform)? set_pref('photoform', $photoform, 'asv_tumblelog', ''):'';	
 		
 		($linkform)? set_pref('linkform', $linkform, 'asv_tumblelog', ''):'';		
+		
+		($videoform)? set_pref('videoform', $videoform, 'asv_tumblelog', ''):'';		
 		
 	}
 	
@@ -1048,13 +1178,15 @@ function asv_tumblelog_settings($step)
 		
 		startTable('list').
 		
-			tr(td('Post Form').td(asv_form_popup($postform, 'postform'))).
+			tr(td('Post').td(asv_form_popup($postform, 'postform'))).
 			
-			tr(td('Quote Form').td(asv_form_popup($quoteform, 'quoteform'))).
+			tr(td('Quote').td(asv_form_popup($quoteform, 'quoteform'))).
 			
-			tr(td('Photo Form').td(asv_form_popup($photoform, 'photoform'))).
+			tr(td('Photo').td(asv_form_popup($photoform, 'photoform'))).
 			
-			tr(td('Link Form').td(asv_form_popup($linkform, 'linkform'))).
+			tr(td('Link').td(asv_form_popup($linkform, 'linkform'))).
+			
+			tr(td('Video ').td(asv_form_popup($videoform, 'videoform'))).
 			
 			tr(tda(fInput('submit','save_settings','save',"publish", '', '', '', 4), ' colspan=2')).
 			
@@ -1215,7 +1347,7 @@ function asv_rssgrab($atts)
 			$out['permalink'] = $feeditem->get_link();		
 			
 			// Get item title
-			$out['title'] = addslashes(asv_tumblelog_trimtwitter($feeditem->get_title(), $out['permalink'], array('twitter')));
+			$out['title'] = addslashes(asv_tumblelog_trimtwitter($feeditem->get_title(), $out['permalink'], true));
 			
 			
 			//Get the image
@@ -1308,11 +1440,11 @@ function asv_rssgrab($atts)
 			
 			if(!beginsWith($feeditem->get_description(), "<p"))
 			{
-				$out['body'] = dotag(doSlash(asv_tumblelog_trimtwitter($feeditem->get_description(), $out['permalink'], array('twitter', 'vimeo'))), 'p');
+				$out['body'] = dotag(doSlash(asv_tumblelog_trimtwitter($feeditem->get_description(), $out['permalink'], false)), 'p');
 			}
 			else
 			{
-				$out['body'] = doSlash(asv_tumblelog_trimtwitter($feeditem->get_description(), $out['permalink'], array('twitter', 'vimeo')));
+				$out['body'] = doSlash(asv_tumblelog_trimtwitter($feeditem->get_description(), $out['permalink'], false));
 			}		
 
 			//Check to see if the article has already been imported
