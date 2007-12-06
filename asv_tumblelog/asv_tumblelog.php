@@ -10,7 +10,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'asv_tumblelog';
 
-$plugin['version'] = '1.5.1';
+$plugin['version'] = '1.5.2';
 $plugin['author'] = 'Amit Varia';
 $plugin['author_uri'] = 'http://www.amitvaria.com/';
 $plugin['description'] = 'Implementing the greatness of tumblelogs';
@@ -348,7 +348,7 @@ EOD;
 			return $video_embed;
 		}
 	}
-	elseif(strstr($source, "youtube.com"))
+	elseif(strstr($source, "youtube.com") && !$title)
 	{
 		$video_id = preg_replace('/(.*?)[\\?&]v=([^\&#]*).*/', '$2',$source);
 $video_embed = <<<EOD
