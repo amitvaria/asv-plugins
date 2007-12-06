@@ -967,13 +967,13 @@ function asv_tumblelog_feeds($step)
 	
 				if($rsspath){
 				
-					list($title, $favicon, $url) = asv_tumblelog_verifyFeed($rsspath, $simplepie);
+					list($title, $favicon, $url) = asv_tumblelog_verifyFeed($rsspath, $asv_tumblelog_simplepie);
 		
 					if($title && $rsspath){
 					
 						$title = doSlash($title);
 						
-						if(assert_int($ID)){
+						if($ID && assert_int($ID)){
 							safe_update('asv_tumblelog_feeds', 
 								"Feed = '$rsspath',
 								Title = '$title',
@@ -1297,17 +1297,17 @@ if(gps('asv_tumblelog_updatefeeds')==1)
 				
 			echo asv_rssgrab(array(
 				'feed'	=> $Feed,
-				'simplepie' => $simplepie,
+				'simplepie' => $asv_tumblelog_simplepie,
 				'type'	=> $Type,
 				'category1'	=> $Category1,
 				'category2' => $Category2,
-				'section'	=> $section,
+				'section'	=> $asv_tumblelog_section,
 				'form'		=> $Type,
-				'linkfield'	=> $sourcelink,
+				'linkfield'	=> $asv_tumblelog_sourcelink,
 				'pubdate' => '',
 				'comments'	=> $Annotate,
 				'keywords'	=> $Keywords,
-				'feed_id_field'	=> $feed_id_field,
+				'feed_id_field'	=> $asv_tumblelog_feed_id_field,
 				'feed_id' => $ID,
 				'lastupdate' => $LastUpdate,
 				));
