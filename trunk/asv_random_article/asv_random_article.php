@@ -64,9 +64,10 @@ $articles ='';
 
         $articles.=$article;
     }
-}
+    }
 
-return $articles; 
+return $articles;
+} 
 # --- END PLUGIN CODE ---
 
 ?>
