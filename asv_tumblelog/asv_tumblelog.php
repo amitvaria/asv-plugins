@@ -10,7 +10,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'asv_tumblelog';
 
-$plugin['version'] = '1.6';
+$plugin['version'] = '1.6.1';
 $plugin['author'] = 'Amit Varia';
 $plugin['author_uri'] = 'http://www.amitvaria.com/';
 $plugin['description'] = 'Implementing the greatness of tumblelogs';
@@ -294,15 +294,16 @@ function asv_tumblelog_verifyTable()
 			`Category1` varchar(128) NOT NULL default '',
 			`Category2` varchar(128) NOT NULL default '',
 			`Keywords` varchar(255) NOT NULL default '',
+			 `AuthorID` varchar(64) NOT NULL default '',
 			`LastUpdate` datetime,
 			 PRIMARY KEY  (`ID`)
 			 ) $tabletype PACK_KEYS=1 AUTO_INCREMENT=2 ");
 			 
 		if($rs = safe_show('COLUMNS', 'asv_tumblelog_feeds'))
 		{
-			if(count($rs)!=13)
+			if(count($rs)!=14)
 			{
-				$design_col = array('ID', 'Favicon', 'Title', 'Feed', 'URL', 'Image', 'Annotate', 'Type', 'Category1', 'Category2', 'Keywords', 'LastUpdate', 'Video');
+				$design_col = array('ID', 'Favicon', 'Title', 'Feed', 'URL', 'Image', 'Annotate', 'Type', 'Category1', 'Category2', 'Keywords', 'LastUpdate', 'Video', 'AuthorID');
 				$exist_col = array();
 				foreach($rs as $col)
 				{
@@ -351,6 +352,8 @@ function asv_tumblelog_verifyTable()
 							break;
 						case 'LastUpdate':
 							safe_alter('asv_tumblelog_feeds', "ADD `LastUpdate` datetime");
+						case 'AuthorID':
+							safe_alter('asv_tumblelog_feeds', "Add `AuthorID` varchar(64) NOT NULL default ''");
 							break;
 							
 					}
@@ -501,8 +504,11 @@ function asv_tumblelog_mini($step)
 	
 	extract($prefs);
 	extract(get_asv_tumblelog_prefs());
+	extract($txpcfg);
+	
+	if(!defined("IMPATH")) define("IMPATH",$path_to_site.'/'.$img_dir.'/');
 
-	$incoming = gpsa(array('method', 'formname', 'sourceurl', 'title', 'body', 'category1', 'category2', 'keywords', 'photourl'));
+	$incoming = gpsa(array('method', 'formname', 'sourceurl', 'title', 'body', 'category1', 'category2', 'keywords', 'photourl', 'photo_import'));
 				
 	$incoming = asv_tumblelog_textile_main_fields($incoming, $use_textile);
 	extract(doSlash($incoming));
@@ -511,7 +517,31 @@ function asv_tumblelog_mini($step)
 	if(gps('action')=='create')
 	{
 		
-		$customField = asv_tumblelog_getCustomField($sourcelink);
+		$customField = asv_tumblelog_getCustomField($asv_tumblelog_sourcelink);
+		
+		if(($method=='photo') && ($photo_import)){
+		
+			$file_content = asv_tumblelog_filecontent($photourl);
+							
+			$ext = strrchr($photourl, '.');							
+			$temp_file = tempnam(IMPATH, 'asv_tumblelog_image_');
+			
+			//write to file		
+			$fh = fopen($temp_file, 'w');
+			fwrite($fh, $file_content);
+			fclose($fh);
+			
+			chmod($temp_file, '777');
+			
+			$thumb_h = (isset($asv_tumblelog_theight))? $asv_tumblelog_theight : "0";
+			$thumb_w = (isset($asv_tumblelog_twidth))?  $asv_tumblelog_twidth: "0";
+			$thumb_crop = (isset($asv_tumblelog_tcrop))?  $asv_tumblelog_tcrop: "0";							
+			
+			list($image_message, $photourl) = asv_tumblelogimage_data($temp_file,array(
+				'name'=> $title, 'category' => '', 'caption' => '', 'alt' => '', 'date'=>'now()', 'thumb_w'=>$thumb_w, 'thumb_h'=>$thumb_h, 'thumb_crop'=>$thumb_crop));
+		
+		
+		}
 			
 		$result = safe_insert("textpattern",
 					"Title           = '".$title."',
@@ -770,7 +800,7 @@ EOD;
 					startTable('list').
 					tr(tda('Add a new photo', ' colspan=2')).
 					tr(td('Form').td(asv_form_popup($asv_tumblelog_photoform, 'formname'))).
-					tr(td('Photo URL').td(fInput('text', 'photourl', $photourl, '', '', '', '50'))).
+					tr(td('Photo URL').td(fInput('text', 'photourl', $photourl, '', '', '', '50').'<br />'.checkbox('photo_import','1', '0')."Import to TXP")).
 					tr(td('Source URL').td(fInput('text', 'sourceurl', $sourceurl, '', '', '', '50'))).
 					tr(td('Title').td(fInput('text', 'title', $title, '', '', '', '50'))).
 					tr(td('Post').td(text_area('body', '100', '250', $body))).
@@ -1031,6 +1061,7 @@ function asv_tumblelog_design($step)
 //--------------------------------------------------------------
 function asv_tumblelog_feeds($step)
 {
+	global $txp_user;
 	
 	asv_tumblelog_verifyTable();
 	
@@ -1066,7 +1097,9 @@ function asv_tumblelog_feeds($step)
 								Category1 = '$category1',
 								Category2 = '$category2',
 								Keywords = '$keywords',
+								AuthorID = '$txp_user',
 								Annotate = '$comments'",
+								
 								"ID = $ID"
 								);		
 							$message = "Updated $title.";
@@ -1082,6 +1115,7 @@ function asv_tumblelog_feeds($step)
 								Category1 = '$category1',
 								Category2 = '$category2',
 								Keywords = '$keywords',
+								AuthorID = '$txp_user',
 								Annotate = '$comments'"
 								);			
 							$message = "Added $title.";		
@@ -1349,8 +1383,6 @@ function asv_tumblelog_update($step)
 			flush();
 			extract($a);
 
-			safe_update('asv_tumblelog_feeds', 'LastUpdate = now()', "ID = '$ID'");
-
 			if(!$LastUpdate)
 				$LastUpdate='January 1, 1970';
 						
@@ -1384,6 +1416,7 @@ function asv_tumblelog_update($step)
 				'lastupdate' => $LastUpdate,
 				'importimage' => $Image,
 				'convertvideo' => $Video,
+				'AuthorID'	=> $AuthorID,
 				));
 		}
 	}
@@ -1416,8 +1449,6 @@ if(gps('asv_tumblelog_updatefeeds')==1)
 			flush();
 			extract($a);
 
-			safe_update('asv_tumblelog_feeds', 'LastUpdate = now()', "ID = '$ID'");
-
 			if(!$LastUpdate)
 				$LastUpdate='January 1, 1970';
 				
@@ -1439,6 +1470,7 @@ if(gps('asv_tumblelog_updatefeeds')==1)
 				'lastupdate' => $LastUpdate,
 				'importimage' => $Image,
 				'convertvideo' => $Video,
+				'AuthorID'	=> $AuthorID,
 				));
 		}
 	}
@@ -1506,8 +1538,7 @@ function asv_tumblelog_permalinkl($atts, $thing)
 function asv_rssgrab($atts)
 {
 	global $prefs, $txpcfg, $txp_user;
-	extract($prefs);
-	global $prefs;
+	extract(get_prefs());
 	
 	
 	extract(lAtts(array(
@@ -1527,6 +1558,7 @@ function asv_rssgrab($atts)
 			'lastupdate' => 'January 1, 1970',
 			'importimage' => '0',
 			'convertvideo' => '0',
+			'AuthorID'	=> '',
 			),$atts));
 			
 	$message = '';		
@@ -1550,6 +1582,12 @@ function asv_rssgrab($atts)
 		$feeditems = $thefeed->get_items();
 		$favicon = $thefeed->get_favicon();
 		echo "\tFavicon - ".$favicon."\r\n";
+		
+		if($thefeed->get_item_quantity()>0){
+			$latest_item = $thefeed->get_item(0);
+			$latestfeedupdate = $latest_item->get_date('U');
+			safe_update('asv_tumblelog_feeds', 'LastUpdate = from_unixtime('.$latestfeedupdate.')', "ID = '$feed_id'");
+		}
 		
 		//reverse order
 		$feeditems = asv_tumblelog_quickSort($feeditems);
@@ -1686,17 +1724,17 @@ function asv_rssgrab($atts)
 						Status          =  4,
 						Posted          =  $when,
 						LastMod         =  now(),
-						AuthorID        = '',
+						AuthorID        = '$AuthorID',
 						Section         = '$section',
 						Category1       = '$category1',
 						Category2       = '$category2',
 						textile_body    =  0,
 						textile_excerpt =  0,
-						Annotate        =  1,
+						Annotate        =  $comments,
 						override_form   = '$form',
 						url_title       = '',
 						$linkfield_set 		= '".$out['permalink']."',
-						AnnotateInvite  = 'comments',
+						AnnotateInvite  = '$comments_default_invite',
 						uid             = '".md5(uniqid(rand(),true))."',
 						feed_time       = $when, ".
 						(($tempField = asv_tumblelog_getCustomField($feed_id_field))? "$tempField = '$feed_id'" : "''")
@@ -1718,7 +1756,7 @@ function asv_rssgrab($atts)
 			else
 			{
 				echo "\tNot importing ".$feeditem->get_title()."\r\n";
-				//$message.= "\t".$feeditem->get_date('U')."\t".strtotime($lastupdate)."\r\n";
+				echo "\t".$feeditem->get_date()."\t".$lastupdate."\r\n";
 			}
 		}
 	}
@@ -1764,6 +1802,7 @@ function asv_tumblelogimage_data($file , $meta = '')
 	global $txpcfg, $extensions, $prefs, $file_max_upload_size;
 
 	extract($txpcfg);
+	extract(get_prefs());
 	
 	$extensions = array(0,'.gif','.jpg','.png','.swf',0,0,0,0,0,0,0,0,'.swf');
 	if(!defined("IMPATH")) define("IMPATH",$path_to_site.'/'.$img_dir.'/');
