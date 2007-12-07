@@ -10,7 +10,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'asv_tumblelog';
 
-$plugin['version'] = '1.5.3';
+$plugin['version'] = '1.6';
 $plugin['author'] = 'Amit Varia';
 $plugin['author_uri'] = 'http://www.amitvaria.com/';
 $plugin['description'] = 'Implementing the greatness of tumblelogs';
@@ -174,7 +174,7 @@ function get_asv_tumblelog_prefs()
 			$out[$a['name']] = $a['val'];
 		}
 		
-		return lAtts(array(
+		$needed_prefs = array(
 			'asv_tumblelog_sourcelink'	=> '',
 			'asv_tumblelog_section' => '',
 			'asv_tumblelog_simplepie' => '',
@@ -185,19 +185,28 @@ function get_asv_tumblelog_prefs()
 			'asv_tumblelog_videoform' => '',
 			'asv_tumblelog_rssfeedpage' => '',
 			'asv_tumblelog_feed_id_field' => '',
-			'asv_tumblelog_theight' => '',
-			'asv_tumblelog_twidth' => '',
-			'asv_tumblelog_vheight' => '',
-			'asv_tumblelog_vwidth' => '',
-			'asv_tumblelog_tcrop' => ''
-			),$out);
-
+			'asv_tumblelog_theight' => '0',
+			'asv_tumblelog_twidth' => '0',
+			'asv_tumblelog_vheight' => '0',
+			'asv_tumblelog_vwidth' => '0',
+			'asv_tumblelog_tcrop' => '0'
+			);
+		
+		$diff = array_diff(array_keys($needed_prefs), array_keys($out));
+		
+		if($diff)
+		{
+			foreach($diff as $val)
+			{
+				set_pref($val,  $needed_prefs[$val], 'asv_tumblelog', '');
+			}
+			return get_asv_tumblelog_prefs();
+		}
+		else
+		{
+			return $out;
+		}
 	}
-	else
-	{
-		$del_result = safe_delete('txp_prefs', "event='asv_tumblelo' AND name NOT LIKE 'asv_tumblelog_%'");
-	}
-	return false;
 }
 // -------------------------------------------------------------
 function asv_tumblelog_getCustomField($name)
@@ -370,6 +379,22 @@ function asv_tumblelog_filecontent($url)
 //--------------------------------------------------------------
 function asv_tumblelog_trimtwitter($input, $source, $title, $convert_video)
 {
+	extract(get_asv_tumblelog_prefs());
+	
+	$video_height = '0';
+	if (isset($asv_tumblelog_vheight)) {
+		if (intval($asv_tumblelog_vheight) > 0){
+			$video_height = $asv_tumblelog_vheight;
+		}
+	}
+	
+	$video_width = '0';
+	if (isset($asv_tumblelog_vwidth)) {
+		if (intval($asv_tumblelog_vwidth) > 0){
+			$video_width = $asv_tumblelog_vwidth;
+		}
+	}
+
 	if(strstr($source, "twitter.com"))
 	{
 		return preg_replace('/(\w+:) (\.*)/', '$2', $input);
@@ -378,8 +403,11 @@ function asv_tumblelog_trimtwitter($input, $source, $title, $convert_video)
 	{
 		$video_id = substr(strrchr($source, '/'), 1);
 		
+		if(!$video_height) $video_height = "327";
+		if(!$video_width) $video_width = "480";
+		
 $video_embed = <<<EOD
-<p><object type="application/x-shockwave-flash" width="400" height="327" data="http://www.vimeo.com/moogaloop.swf?clip_id=$video_id&amp;server=www.vimeo.com&amp;fullscreen=1&amp;show_title=1&amp;show_byline=1&amp;show_portrait=0&amp;color=01AAEA">	<param name="quality" value="best" />	<param name="allowfullscreen" value="true" />	<param name="scale" value="showAll" />	<param name="movie" value="http://www.vimeo.com/moogaloop.swf?clip_id=$video_id&amp;server=www.vimeo.com&amp;fullscreen=1&amp;show_title=1&amp;show_byline=1&amp;show_portrait=0&amp;color=01AAEA" /></object></p>
+<p><object type="application/x-shockwave-flash" width="$video_width" height="$video_height" data="http://www.vimeo.com/moogaloop.swf?clip_id=$video_id&amp;server=www.vimeo.com&amp;fullscreen=1&amp;show_title=1&amp;show_byline=1&amp;show_portrait=0&amp;color=01AAEA">	<param name="quality" value="best" />	<param name="allowfullscreen" value="true" />	<param name="scale" value="showAll" />	<param name="movie" value="http://www.vimeo.com/moogaloop.swf?clip_id=$video_id&amp;server=www.vimeo.com&amp;fullscreen=1&amp;show_title=1&amp;show_byline=1&amp;show_portrait=0&amp;color=01AAEA" /></object></p>
 EOD;
 		return $video_embed;
 	}
@@ -389,8 +417,12 @@ EOD;
 		if($matches)
 		{
 			$video_id = $matches[2];
+		
+		if(!$video_height) $video_height = "370";
+		if(!$video_width) $video_width = "400";
+		
 $video_embed = <<<EOD
-<p><object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" width="400" height="370" id="viddler"><param name="movie" value="http://www.viddler.com/player/$video_id/" /><param name="allowScriptAccess" value="always" /><param name="allowFullScreen" value="true" /><embed src="http://www.viddler.com/player/$video_id/" width="400" height="370" type="application/x-shockwave-flash" allowScriptAccess="always" allowFullScreen="true" name="viddler" ></embed></object></p>
+<p><object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" width="$video_width" height="$video_height" id="viddler"><param name="movie" value="http://www.viddler.com/player/$video_id/" /><param name="allowScriptAccess" value="always" /><param name="allowFullScreen" value="true" /><embed src="http://www.viddler.com/player/$video_id/" width="$video_width" height="$video_height" type="application/x-shockwave-flash" allowScriptAccess="always" allowFullScreen="true" name="viddler" ></embed></object></p>
 EOD;
 			return $video_embed;
 		}
@@ -398,8 +430,12 @@ EOD;
 	elseif(strstr($source, "youtube.com") && !$title && $convert_video)
 	{
 		$video_id = preg_replace('/(.*?)[\\?&]v=([^\&#]*).*/', '$2',$source);
+		
+		if(!$video_height) $video_height = "355";
+		if(!$video_width) $video_width = "425";
+		
 $video_embed = <<<EOD
-<p><object width="425" height="355"><param name="movie" value="http://www.youtube.com/v/$video_id&rel=1"></param><param name="wmode" value="transparent"></param><embed src="http://www.youtube.com/v/$video_id&rel=1" type="application/x-shockwave-flash" wmode="transparent" width="425" height="355"></embed></object></p>
+<p><object width="$video_width" height="$video_height"><param name="movie" value="http://www.youtube.com/v/$video_id&rel=1"></param><param name="wmode" value="transparent"></param><embed src="http://www.youtube.com/v/$video_id&rel=1" type="application/x-shockwave-flash" wmode="transparent" width="$video_width" height="$video_height"></embed></object></p>
 EOD;
 		return $video_embed;
 	}
@@ -1217,13 +1253,13 @@ function asv_tumblelog_settings($step)
 		
 		($asv_tumblelog_theight)? set_pref('asv_tumblelog_theight', $asv_tumblelog_theight, 'asv_tumblelog', ''):'';
 		
-		($asv_tumblelog_twidth && is_int($asv_tumblelog_twidth))? set_pref('asv_tumblelog_twidth', $asv_tumblelog_twidth, 'asv_tumblelog', ''):'';
+		($asv_tumblelog_twidth)? set_pref('asv_tumblelog_twidth', $asv_tumblelog_twidth, 'asv_tumblelog', ''):'';
+			
+		($asv_tumblelog_tcrop)? set_pref('asv_tumblelog_tcrop', '1', 'asv_tumblelog', ''):set_pref('asv_tumblelog_tcrop', '0', 'asv_tumblelog', '');
 		
-		($asv_tumblelog_tcrop && is_int($asv_tumblelog_tcrop))? set_pref('asv_tumblelog_tcrop', $asv_tumblelog_tcrop, 'asv_tumblelog', ''):'';
+		($asv_tumblelog_vheight)? set_pref('asv_tumblelog_vheight', $asv_tumblelog_vheight, 'asv_tumblelog', ''):'';
 		
-		($asv_tumblelog_vheight && is_int($asv_tumblelog_vheight))? set_pref('asv_tumblelog_vheight', $asv_tumblelog_vheight, 'asv_tumblelog', ''):'';
-		
-		($asv_tumblelog_vwidth) && is_int($asv_tumblelog_vwidth)? set_pref('asv_tumblelog_vwidth', $asv_tumblelog_vwidth, 'asv_tumblelog', ''):'';
+		($asv_tumblelog_vwidth)? set_pref('asv_tumblelog_vwidth', $asv_tumblelog_vwidth, 'asv_tumblelog', ''):'';
 		
 		$message .= "Settings saved.";
 		
@@ -1276,7 +1312,7 @@ function asv_tumblelog_settings($step)
 		
 		startTable('list').
 		
-			tr(td('Thumbnail Height').td(fInput('text', 'asv_tumblelog_theight', $asv_tumblelog_theight,'','','','5')).td('Thumbnail Width').td(fInput('text', 'asv_tumblelog_twidth', $asv_tumblelog_twidth,'','','','5')).td('Crop').td(checkbox('asv_tumblelog_tcrop',$asv_tumblelog_tcrop, false))).
+			tr(td('Thumbnail Height').td(fInput('text', 'asv_tumblelog_theight', $asv_tumblelog_theight,'','','','5')).td('Thumbnail Width').td(fInput('text', 'asv_tumblelog_twidth', (($asv_tumblelog_twidth)?$asv_tumblelog_twidth:'0'),'','','','5')).td('Crop').td(checkbox('asv_tumblelog_tcrop','1', $asv_tumblelog_tcrop, '', 'asv_tumblelog_tcrop'))).
 			
 			tr(td('Video Height').td(fInput('text', 'asv_tumblelog_vheight', $asv_tumblelog_vheight,'','','','5')).td('Video Width').td(fInput('text', 'asv_tumblelog_vwidth', $asv_tumblelog_vwidth,'','','','5')).td().td()).
 			
@@ -1291,7 +1327,11 @@ function asv_tumblelog_settings($step)
 function asv_tumblelog_update($step)
 {
 	global $txp_user;
+
 	extract(get_asv_tumblelog_prefs());
+	
+	set_time_limit(120);
+
 	if(gps('asv_tumblelog_updatefeed_id') && assert_int(gps('asv_tumblelog_updatefeed_id'))){
 		$rID = gps('asv_tumblelog_updatefeed_id');	
 		$where = "ID='".doSlash($rID)."'";
@@ -1305,6 +1345,8 @@ function asv_tumblelog_update($step)
 	{
 		while($a = nextRow($rs))
 		{
+			ob_flush();
+			flush();
 			extract($a);
 
 			safe_update('asv_tumblelog_feeds', 'LastUpdate = now()', "ID = '$ID'");
@@ -1352,7 +1394,11 @@ function asv_tumblelog_update($step)
 if(gps('asv_tumblelog_updatefeeds')==1)
 {
 	global $txp_user;
+
+	set_time_limit(120);
+	
 	extract(get_asv_tumblelog_prefs());
+	
 	if(gps('asv_tumblelog_updatefeed_id') && assert_int(gps('asv_tumblelog_updatefeed_id'))){
 		$rID = gps('asv_tumblelog_updatefeed_id');	
 		$where = "ID='".doSlash($rID)."'";
@@ -1366,6 +1412,8 @@ if(gps('asv_tumblelog_updatefeeds')==1)
 	{
 		while($a = nextRow($rs))
 		{
+			ob_flush();
+			flush();
 			extract($a);
 
 			safe_update('asv_tumblelog_feeds', 'LastUpdate = now()', "ID = '$ID'");
@@ -1459,6 +1507,8 @@ function asv_rssgrab($atts)
 {
 	global $prefs, $txpcfg, $txp_user;
 	extract($prefs);
+	global $prefs;
+	
 	
 	extract(lAtts(array(
 			'feed'       => '',
@@ -1491,15 +1541,15 @@ function asv_rssgrab($atts)
 	$thefeed->enable_cache(false);
 	$thefeed->handle_content_type();
 	
-	$message .= "Getting $feed\r\n";
+	echo "Getting $feed\r\n";
 	//Get the feed
 	$success = $thefeed->init();
 	
 	if($success) {
-		$message .= "\tSuccess!\r\n";
+		echo "\tSuccess!\r\n";
 		$feeditems = $thefeed->get_items();
 		$favicon = $thefeed->get_favicon();
-		$message .= "\tFavicon - ".$favicon."\r\n";
+		echo "\tFavicon - ".$favicon."\r\n";
 		
 		//reverse order
 		$feeditems = asv_tumblelog_quickSort($feeditems);
@@ -1575,14 +1625,15 @@ function asv_rssgrab($atts)
 							
 							chmod($temp_file, '777');
 							
-							$prefs['thumb_h'] = (isset($asv_tumblelog_theight))? $asv_tumblelog_theight : "0";
-							$prefs['thumb_w'] = (isset($asv_tumblelog_twidth))?  $asv_tumblelog_twidth: "0";
-							$prefs['thumb_crop'] = (isset($asv_tumblelog_tcrop))?  $asv_tumblelog_tcrop: "0";							
+							$thumb_h = (isset($asv_tumblelog_theight))? $asv_tumblelog_theight : "0";
+							$thumb_w = (isset($asv_tumblelog_twidth))?  $asv_tumblelog_twidth: "0";
+							$thumb_crop = (isset($asv_tumblelog_tcrop))?  $asv_tumblelog_tcrop: "0";							
 							
-							list($image_message, $image_id) = asv_tumblelogimage_data($temp_file,array('name'=> $out['title'], 'category' => '', 'caption' => '', 'alt' => '', 'date'=>$when));
+							list($image_message, $image_id) = asv_tumblelogimage_data($temp_file,array(
+								'name'=> $out['title'], 'category' => '', 'caption' => '', 'alt' => '', 'date'=>$when, 'thumb_w'=>$thumb_w, 'thumb_h'=>$thumb_h, 'thumb_crop'=>$thumb_crop));
 							if($image_id)
 							{
-								$message .= "\t$image_message\r\n";							
+								echo "\t$image_message\r\n";							
 								$image = $image_id;
 							}
 						}
@@ -1656,25 +1707,26 @@ function asv_rssgrab($atts)
 					{
 						//do_pings();
 						update_lastmod();
-						$message .= "\tAdded - ".$out['title']."\r\n";
+						echo "\tAdded - ".$out['title']."\r\n";
 					}
 				}
 				else
 				{
-					$message .= "\tExists - ".$out['title']."\r\n";
+					echo "\tExists - ".$out['title']."\r\n";
 				}
 			}
 			else
 			{
-				$message.= "\tNot importing ".$feeditem->get_title()."\r\n";
-				$message.= "\t".$feeditem->get_date('U')."\t".strtotime($lastupdate)."\r\n";
+				echo "\tNot importing ".$feeditem->get_title()."\r\n";
+				//$message.= "\t".$feeditem->get_date('U')."\t".strtotime($lastupdate)."\r\n";
 			}
 		}
 	}
 	else {
-		$message .= "\t".$thefeed->error;
+		echo "\t".$thefeed->error;
 	}
-	return $message;
+	flush();
+	//return $message;
 }
 //--------------------------------------------------------------
 //helper functions
@@ -1786,19 +1838,20 @@ function asv_tumblelogimage_data($file , $meta = '')
 				@chmod($newpath, 0644);
 
 				// Auto-generate a thumbnail using the last settings
-				if (isset($prefs['thumb_w'], $prefs['thumb_h'], $prefs['thumb_crop'])) {
-					if (intval($prefs['thumb_w']) > 0 || intval($prefs['thumb_h']) > 0) {
-						$t = new txp_thumb( $id );
+				$t = new txp_thumb( $id );
+				
+				
+				if (isset($thumb_w) && is_numeric($thumb_w))
+						$t->width = $thumb_w;
+				
+				if (isset($thumb_h) && is_numeric($thumb_h))
+						$t->height = $thumb_h;
 
-						$t->crop = ($prefs['thumb_crop'] == '1');
-						$t->hint = '0';
-						$t->width = intval($prefs['thumb_w']);
-						$t->height = intval($prefs['thumb_h']);
+				$t->crop = ($thumb_crop == '1');
+				$t->hint = '0';
 
-						$t->write();
-					}
-				}
-
+				$t->write();
+				
 				$message = gTxt('image_uploaded', array('{name}' => $name));
 				update_lastmod();
 
