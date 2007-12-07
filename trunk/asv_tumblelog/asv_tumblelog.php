@@ -127,37 +127,37 @@ function asv_section_popup($Section, $id)
 	return false;
 }
 //--------------------------------------------------------------
-function asv_custom_popup($Custom, $id)
+function asv_custom_popup($custom, $id)
 {
 	$rs = safe_column('val', 'txp_prefs', "name LIKE 'custom_%_set'");
   
 	if ($rs)
 	{
-		return selectInput($id, $rs, $Custom, false, '', $id);
+		return selectInput($id, $rs, $custom, false, '', $id);
 	}
   
 	return false;
 }
 //--------------------------------------------------------------
-function asv_form_popup($Custom, $id, $name="")
+function asv_form_popup($custom, $id)
 {
 	$rs = safe_column('name', 'txp_form', "type='article'");
   
 	if ($rs)
 	{
-		return selectInput($id, $rs, $Custom, false, '', $id);
+		return selectInput($id, $rs, $custom, false, '', $id);
 	}
   
 	return false;
 }
 //--------------------------------------------------------------
-function asv_cat_popup($Custom, $id, $name="")
+function asv_cat_popup($custom, $id)
 {
 	$rs = getTree('root', 'article');
 
 	if ($rs)
 	{
-		return treeSelectInput($id,$rs,$Custom, $id);
+		return treeSelectInput($id,$rs,$custom, $id);
 	}
 
 	return false;
@@ -1427,7 +1427,7 @@ function asv_tumblelog_update($step)
 if(gps('asv_tumblelog_updatefeeds')==1)
 {
 	global $txp_user;
-
+	
 	set_time_limit(120);
 	
 	extract(get_asv_tumblelog_prefs());
