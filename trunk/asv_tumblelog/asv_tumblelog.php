@@ -91,7 +91,7 @@ p. You'll learn that you have a lot of room for flexibility and customization wi
 if (@txpinterface == 'admin')
 {
 	add_privs('asv_tumblelog','1,2,3,4'); // Allow only userlevels 1,2,3,4 acess to this plugin.
-	register_tab('content', 'asv_tumblelog', "Tumblelog");
+	register_tab('extensions', 'asv_tumblelog', "Tumblelog");
 	register_callback("asv_tumblelog", "asv_tumblelog");
 }
 
@@ -185,6 +185,11 @@ function get_asv_tumblelog_prefs()
 			'asv_tumblelog_videoform' => '',
 			'asv_tumblelog_rssfeedpage' => '',
 			'asv_tumblelog_feed_id_field' => '',
+			'asv_tumblelog_theight' => '',
+			'asv_tumblelog_twidth' => '',
+			'asv_tumblelog_vheight' => '',
+			'asv_tumblelog_vwidth' => '',
+			'asv_tumblelog_tcrop' => ''
 			),$out);
 
 	}
@@ -216,6 +221,27 @@ function asv_tumblelog_list_multiedit_form()
 	);
 
 	return event_multiedit_form('list', $methods, '','','','','');
+}
+// -------------------------------------------------------------
+function asv_tumblelog_quickSort($items) {//from bit_rss
+    if(count($items) > 1) {
+        $pivot = array_pop($items);
+    
+        $less = array();
+        $more = array();
+        for($i = 0; $i < count($items); $i++) {
+            $cItem = $items[$i];
+            if($cItem->get_date('U') >= $pivot->get_date('U')) {
+                $more[] = $cItem;
+            }else {
+                $less[] = $cItem;
+            }
+        }
+        
+        return array_merge(asv_tumblelog_quickSort($less), array($pivot), asv_tumblelog_quickSort($more));
+    }else {
+        return $items;
+    }
 }
 //--------------------------------------------------------------
 function asv_tumblelog_verifyFeed($feed, $simplepie)
@@ -253,6 +279,7 @@ function asv_tumblelog_verifyTable()
 			`Feed` varchar(255) NOT NULL default '',
 			`URL` varchar(255) NOT NULL default '',
 			`Image` int(3) NOT NULL default '0',
+			`Video` int(2) NOT NULL default '0',
 			`Annotate` int(2) NOT NULL default '0',
 			`Type` varchar(128) NOT NULL default '',
 			`Category1` varchar(128) NOT NULL default '',
@@ -264,9 +291,9 @@ function asv_tumblelog_verifyTable()
 			 
 		if($rs = safe_show('COLUMNS', 'asv_tumblelog_feeds'))
 		{
-			if(count($rs)!=12)
+			if(count($rs)!=13)
 			{
-				$design_col = array('ID', 'Favicon', 'Title', 'Feed', 'URL', 'Image', 'Annotate', 'Type', 'Category1', 'Category2', 'Keywords', 'LastUpdate');
+				$design_col = array('ID', 'Favicon', 'Title', 'Feed', 'URL', 'Image', 'Annotate', 'Type', 'Category1', 'Category2', 'Keywords', 'LastUpdate', 'Video');
 				$exist_col = array();
 				foreach($rs as $col)
 				{
@@ -295,6 +322,9 @@ function asv_tumblelog_verifyTable()
 						case 'Image':
 							safe_alter('asv_tumblelog_feeds', "ADD `Image` int(3) NOT NULL default '0'");
 							break;
+						case 'Video':
+							safe_alter('asv_tumblelog_feeds', "ADD `Video` int(2) NOT NULL default '0'");
+							break;
 						case 'Annotate':
 							safe_alter('asv_tumblelog_feeds', "ADD `Annotate` int(2) NOT NULL default '0'");
 							break;
@@ -321,13 +351,30 @@ function asv_tumblelog_verifyTable()
 	}
 }
 //--------------------------------------------------------------
-function asv_tumblelog_trimtwitter($input, $source, $title)
+function asv_tumblelog_filecontent($url)
+{
+	// create a new curl resource
+	$ch = curl_init();
+	// set URL and other appropriate options
+	curl_setopt($ch, CURLOPT_URL, $url);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+	// grab URL, and return output
+	$output = curl_exec($ch);
+	//get errors		
+	$err     = curl_errno( $ch );
+	$errmsg  = curl_error( $ch );
+	// close curl resource, and free up system resources
+	curl_close($ch);
+	return $output; 
+}
+//--------------------------------------------------------------
+function asv_tumblelog_trimtwitter($input, $source, $title, $convert_video)
 {
 	if(strstr($source, "twitter.com"))
 	{
 		return preg_replace('/(\w+:) (\.*)/', '$2', $input);
 	}
-	elseif(strstr($source, "vimeo.com") && !$title)
+	elseif(strstr($source, "vimeo.com") && !$title && $convert_video)
 	{
 		$video_id = substr(strrchr($source, '/'), 1);
 		
@@ -336,7 +383,7 @@ $video_embed = <<<EOD
 EOD;
 		return $video_embed;
 	}
-	elseif(strstr($source, "viddler.com") && !$title)
+	elseif(strstr($source, "viddler.com") && !$title  && $convert_video)
 	{		
 		preg_match('/(.*?)[\\?&]token=(\w*)(.*)/', str_replace(array("\n", "\r", "\t", " ", "\o", "\xOB"), '', $input), $matches);
 		if($matches)
@@ -348,7 +395,7 @@ EOD;
 			return $video_embed;
 		}
 	}
-	elseif(strstr($source, "youtube.com") && !$title)
+	elseif(strstr($source, "youtube.com") && !$title && $convert_video)
 	{
 		$video_id = preg_replace('/(.*?)[\\?&]v=([^\&#]*).*/', '$2',$source);
 $video_embed = <<<EOD
@@ -951,11 +998,9 @@ function asv_tumblelog_feeds($step)
 	
 	asv_tumblelog_verifyTable();
 	
-	$types = array('post'=>'post', 'quote'=>'quote', 'photo'=>'photo', 'link'=>'link', 'video'=>'video');
-	
 	$message = '';
 	
-	extract(doSlash(gpsa(array('rsspath', 'type', 'comments', 'category1', 'category2', 'asv_image', 'keywords', 'ID', 'favicon',))));
+	extract(doSlash(gpsa(array('rsspath', 'type', 'comments', 'category1', 'category2', 'asv_image', 'asv_video', 'keywords', 'ID', 'favicon',))));
 				
 	extract(get_asv_tumblelog_prefs());
 	
@@ -980,6 +1025,7 @@ function asv_tumblelog_feeds($step)
 								Type = '$type',
 								URL = '$url',
 								Image = '$asv_image',
+								Video = '$asv_video',
 								Favicon = '$favicon',
 								Category1 = '$category1',
 								Category2 = '$category2',
@@ -994,6 +1040,7 @@ function asv_tumblelog_feeds($step)
 								Title = '$title',
 								Type = '$type',
 								Image = '$asv_image',
+								Video = '$asv_video',
 								URL = '$url',
 								Favicon = '$favicon',
 								Category1 = '$category1',
@@ -1053,6 +1100,8 @@ function asv_tumblelog_feeds($step)
 				
 				tr(td('Import Images').td(radio('asv_image', '0', $checked_image[0]).'no '.radio('asv_image', '1', $checked_image[1]).'url '.radio('asv_image', '2', $checked_image[2]).'image')).
 				
+				tr(td('Convert Video').td(yesnoRadio('asv_video', ($asv_video == '0')? $asv_video : "1"))).
+				
 				tr(td('Form').td(asv_form_popup($type, 'type'))).
 				
 				tr(td('Comments').td(onoffRadio('comments', ($comments == '0')? $comments : "1"))).
@@ -1079,7 +1128,8 @@ function asv_tumblelog_feeds($step)
 				n.column_head('Title', 'title', 'asv_tumblelog', false, '', '', '').			
 				n.column_head('URL', 'url', 'asv_tumblelog', false, '', '', '').			
 				n.column_head('Feed', 'feed', 'asv_tumblelog', false, '', '', '').			
-				n.column_head('Image', 'image', 'asv_tumblelog', false, '', '', '').
+				n.column_head('Image', 'image', 'asv_tumblelog', false, '', '', '').		
+				n.column_head('Video', 'video', 'asv_tumblelog', false, '', '', '').
 				n.column_head('Form', 'type', 'asv_tumblelog', false, '', '', '').
 				n.column_head('Comments', 'comments', 'asv_tumblelog', false, '', '', '').
 				n.column_head('Category1', 'category1', 'asv_tumblelog', false, '', '', '').
@@ -1094,7 +1144,7 @@ function asv_tumblelog_feeds($step)
 			while($a = nextRow($rs))
 			{
 				extract($a);
-				$link = "<a href=\"index.php?event=asv_tumblelog&step=Feeds&rsspath=".urlencode($Feed)."&asv_image=".$Image."&type=".$Type."&comments=".$a['Annotate']."&category1=$Category1&category2=$Category2&keywords=$Keywords&ID=$ID\">$Title</a>";
+				$link = "<a href=\"index.php?event=asv_tumblelog&step=Feeds&rsspath=".urlencode($Feed)."&asv_image=".$Image."&type=".$Type."&comments=".$a['Annotate']."&category1=$Category1&category2=$Category2&keywords=$Keywords&ID=$ID&asv_video=".$Video."\">$Title</a>";
 				
 				switch($Image)
 				{
@@ -1115,7 +1165,8 @@ function asv_tumblelog_feeds($step)
 					td($link).
 					td($URL).	
 					td(substr($Feed,0,25).'...').				
-					td($translateImage).
+					td($translateImage).			
+					td(($Video)?"yes":"no").
 					td($Type).
 					td(($Annotate)?"on":"off").
 					td($Category1).
@@ -1144,7 +1195,7 @@ function asv_tumblelog_settings($step)
 	
 	if(gps('save_settings'))
 	{
-		extract(doSlash(gpsa(array('asv_tumblelog_feed_id_field', 'asv_tumblelog_sourcelink', 'asv_tumblelog_section', 'asv_tumblelog_simplepie', 'asv_tumblelog_linkform', 'asv_tumblelog_postform', 'asv_tumblelog_quoteform', 'asv_tumblelog_photoform', 'asv_tumblelog_videoform'))));
+		extract(doSlash(gpsa(array('asv_tumblelog_feed_id_field', 'asv_tumblelog_sourcelink', 'asv_tumblelog_section', 'asv_tumblelog_simplepie', 'asv_tumblelog_linkform', 'asv_tumblelog_postform', 'asv_tumblelog_quoteform', 'asv_tumblelog_photoform', 'asv_tumblelog_videoform', 'asv_tumblelog_theight', 'asv_tumblelog_twidth', 'asv_tumblelog_tcrop', 'asv_tumblelog_vheight', 'asv_tumblelog_vwidth'))));
 
 		($asv_tumblelog_sourcelink)? set_pref('asv_tumblelog_sourcelink', $asv_tumblelog_sourcelink, 'asv_tumblelog', ''):''; 
 		
@@ -1152,7 +1203,7 @@ function asv_tumblelog_settings($step)
 
 		($asv_tumblelog_feed_id_field)? set_pref('asv_tumblelog_feed_id_field', $asv_tumblelog_feed_id_field, 'asv_tumblelog', ''):''; 
 		
-		(file_exists($asv_tumblelog_simplepie)) ? set_pref('asv_tumblelog_simplepie', $asv_tumblelog_simplepie, 'asv_tumblelog', ''): $message = "$simplepie not found. ";		
+		(file_exists($asv_tumblelog_simplepie)) ? set_pref('asv_tumblelog_simplepie', $asv_tumblelog_simplepie, 'asv_tumblelog', ''): $message = "$asv_tumblelog_simplepie not found. ";		
 		
 		($asv_tumblelog_postform)? set_pref('asv_tumblelog_postform', $asv_tumblelog_postform, 'asv_tumblelog', ''):'';	
 		
@@ -1162,7 +1213,17 @@ function asv_tumblelog_settings($step)
 		
 		($asv_tumblelog_linkform)? set_pref('asv_tumblelog_linkform', $asv_tumblelog_linkform, 'asv_tumblelog', ''):'';		
 		
-		($asv_tumblelog_videoform)? set_pref('asv_tumblelog_videoform', $asv_tumblelog_videoform, 'asv_tumblelog', ''):'';		
+		($asv_tumblelog_videoform)? set_pref('asv_tumblelog_videoform', $asv_tumblelog_videoform, 'asv_tumblelog', ''):'';
+		
+		($asv_tumblelog_theight)? set_pref('asv_tumblelog_theight', $asv_tumblelog_theight, 'asv_tumblelog', ''):'';
+		
+		($asv_tumblelog_twidth && is_int($asv_tumblelog_twidth))? set_pref('asv_tumblelog_twidth', $asv_tumblelog_twidth, 'asv_tumblelog', ''):'';
+		
+		($asv_tumblelog_tcrop && is_int($asv_tumblelog_tcrop))? set_pref('asv_tumblelog_tcrop', $asv_tumblelog_tcrop, 'asv_tumblelog', ''):'';
+		
+		($asv_tumblelog_vheight && is_int($asv_tumblelog_vheight))? set_pref('asv_tumblelog_vheight', $asv_tumblelog_vheight, 'asv_tumblelog', ''):'';
+		
+		($asv_tumblelog_vwidth) && is_int($asv_tumblelog_vwidth)? set_pref('asv_tumblelog_vwidth', $asv_tumblelog_vwidth, 'asv_tumblelog', ''):'';
 		
 		$message .= "Settings saved.";
 		
@@ -1207,7 +1268,19 @@ function asv_tumblelog_settings($step)
 			
 			tr(td('Video ').td(asv_form_popup($asv_tumblelog_videoform, 'asv_tumblelog_videoform'))).
 			
-			tr(tda(fInput('submit','save_settings','save',"publish", '', '', '', 4), ' colspan=2')).
+		endTable().
+				
+		tag(' ', 'p'). 
+		
+		tag('Image/Video' ,'h3', ' style="text-align: center;"').
+		
+		startTable('list').
+		
+			tr(td('Thumbnail Height').td(fInput('text', 'asv_tumblelog_theight', $asv_tumblelog_theight,'','','','5')).td('Thumbnail Width').td(fInput('text', 'asv_tumblelog_twidth', $asv_tumblelog_twidth,'','','','5')).td('Crop').td(checkbox('asv_tumblelog_tcrop',$asv_tumblelog_tcrop, false))).
+			
+			tr(td('Video Height').td(fInput('text', 'asv_tumblelog_vheight', $asv_tumblelog_vheight,'','','','5')).td('Video Width').td(fInput('text', 'asv_tumblelog_vwidth', $asv_tumblelog_vwidth,'','','','5')).td().td()).
+			
+			tr(tda(fInput('submit','save_settings','save',"publish", '', '', '', 4), ' colspan=4')).
 			
 		endTable();
 		
@@ -1267,6 +1340,8 @@ function asv_tumblelog_update($step)
 				'feed_id_field'	=> $asv_tumblelog_feed_id_field,
 				'feed_id' => $ID,
 				'lastupdate' => $LastUpdate,
+				'importimage' => $Image,
+				'convertvideo' => $Video,
 				));
 		}
 	}
@@ -1314,7 +1389,8 @@ if(gps('asv_tumblelog_updatefeeds')==1)
 				'feed_id_field'	=> $asv_tumblelog_feed_id_field,
 				'feed_id' => $ID,
 				'lastupdate' => $LastUpdate,
-				'importimage' => $Image
+				'importimage' => $Image,
+				'convertvideo' => $Video,
 				));
 		}
 	}
@@ -1399,7 +1475,8 @@ function asv_rssgrab($atts)
 			'feed_id_field' => '',
 			'feed_id' =>'',
 			'lastupdate' => 'January 1, 1970',
-			'importimage' => '0'
+			'importimage' => '0',
+			'convertvideo' => '0',
 			),$atts));
 			
 	$message = '';		
@@ -1423,6 +1500,10 @@ function asv_rssgrab($atts)
 		$feeditems = $thefeed->get_items();
 		$favicon = $thefeed->get_favicon();
 		$message .= "\tFavicon - ".$favicon."\r\n";
+		
+		//reverse order
+		$feeditems = asv_tumblelog_quickSort($feeditems);
+		
 		foreach($feeditems as $feeditem) {
 			if($feeditem->get_date('U') > strtotime($lastupdate))
 			{
@@ -1430,7 +1511,7 @@ function asv_rssgrab($atts)
 				$out['permalink'] = $feeditem->get_link();		
 				
 				// Get item title
-				$out['title'] = addslashes(asv_tumblelog_trimtwitter($feeditem->get_title(), $out['permalink'], true));
+				$out['title'] = addslashes(asv_tumblelog_trimtwitter($feeditem->get_title(), $out['permalink'], true, $convertvideo));
 				
 				
 				//Get the image
@@ -1451,47 +1532,22 @@ function asv_rssgrab($atts)
 				{
 					$when = 'now()';
 				}	
-				
-				//Get the body
-				/*if($type=="media")
-				{
-					$encs = $feeditem->get_enclosures();
-					foreach($encs as $enclosure)
-					{
-						print_r($enclosure);
-						if(!is_null($enclosure->get_link())){
-							$enc_link = $enclosure->get_link();
-						}
-						else
-						{
-							$enc_link = $enc_link;
-						}
-						$enc_link = str_replace('&amp;', '&', $enc_link);
-						$out['body'] = '<p><object type="application/x-shockwave-flash" width="506" height="414" data="'.$enc_link.'">
-											<param name="quality" value="high" />
-											<param name="allowfullscreen" value="true" />
-											<param name="scale" value="showAll" />
-											<param name="movie" value="'.$enc_link.'" />
-										</object><p>';
-					}
-				}*/
-				
-
-				
+								
 				if(!beginsWith($feeditem->get_description(), "<p"))
 				{
-					$out['body'] = tag(doSlash(asv_tumblelog_trimtwitter($feeditem->get_description(), $out['permalink'], false)), 'p');
+					$out['body'] = tag(doSlash(asv_tumblelog_trimtwitter($feeditem->get_description(), $out['permalink'], false, $convertvideo)), 'p');
 				}
 				else
 				{
-					$out['body'] = doSlash(asv_tumblelog_trimtwitter($feeditem->get_description(), $out['permalink'], false));
+					$out['body'] = doSlash(asv_tumblelog_trimtwitter($feeditem->get_description(), $out['permalink'], false, $convertvideo));
 				}		
 	
 				//Check to see if the article has already been imported
 				$exists = safe_count('textpattern', "Title = '".$out['title']."' AND Posted=$when AND Section='$section'");
-				
+								
 				//If it hasn't then let's add it
 				if($exists==0){
+										
 					//Import the image
 					$image = '';
 					if($importimage)
@@ -1500,47 +1556,38 @@ function asv_rssgrab($atts)
 						$feedDescription = $feeditem->get_content();
 						$image = returnImage($feedDescription);
 						$image = urldecode(scrapeImage($image));
+						
+						//Hack to get the larger size of flickr images
 						if(strstr($image, "flickr.com"))
 							$image = str_replace("_m.jpg", ".jpg", $image);
-						//Check to see if it needs to be imported into TXP Image
+							
 						if($importimage == '2')
 						{			
-							//get extension
-							$ext = strrchr($image, '.');
-							$check = safe_field('ID', 'txp_image', "NAME = '".$out['title']."' AND DATE = $when");		
-							if($check)
+							$file_content = asv_tumblelog_filecontent($image);
+							
+							$ext = strrchr($image, '.');							
+							$temp_file = tempnam(IMPATH, 'asv_tumblelog_image_');
+							
+							//write to file		
+							$fh = fopen($temp_file, 'w');
+							fwrite($fh, $file_content);
+							fclose($fh);
+							
+							chmod($temp_file, '777');
+							
+							$prefs['thumb_h'] = (isset($asv_tumblelog_theight))? $asv_tumblelog_theight : "0";
+							$prefs['thumb_w'] = (isset($asv_tumblelog_twidth))?  $asv_tumblelog_twidth: "0";
+							$prefs['thumb_crop'] = (isset($asv_tumblelog_tcrop))?  $asv_tumblelog_tcrop: "0";							
+							
+							list($image_message, $image_id) = asv_tumblelogimage_data($temp_file,array('name'=> $out['title'], 'category' => '', 'caption' => '', 'alt' => '', 'date'=>$when));
+							if($image_id)
 							{
-								$imageID = $check;
+								$message .= "\t$image_message\r\n";							
+								$image = $image_id;
 							}
-							else
-							{
-								safe_insert('txp_image',
-									"name = '".$out['title']."',
-									ext = '$ext',
-									date = $when"
-								);
-								$imageID = mysql_insert_id();
-								// create a new curl resource
-								$ch = curl_init();
-								// set URL and other appropriate options
-								curl_setopt($ch, CURLOPT_URL, "$image");
-								curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-								// grab URL, and return output
-								$output = curl_exec($ch);
-								// close curl resource, and free up system resources
-								curl_close($ch);
-								//write to file
-								$filename = IMPATH.basename($image);				
-								$fh = fopen(IMPATH.$imageID.$ext, 'w');
-								fwrite($fh, $output);
-								fclose($fh);
-								$shortpath = basename($image);
-								$message .= "\tImported $filename\r\n";
-							}
-							$image = "http://".$prefs['siteurl']."/".$img_dir.'/'.$imageID.$ext;
 						}
 					}
-								
+					
 					//Check to see if category1 exists
 					if($category1 && !fetch_category_title($category1))
 					{
@@ -1588,7 +1635,7 @@ function asv_rssgrab($atts)
 						Status          =  4,
 						Posted          =  $when,
 						LastMod         =  now(),
-						AuthorID        = '$txp_user',
+						AuthorID        = '',
 						Section         = '$section',
 						Category1       = '$category1',
 						Category2       = '$category2',
@@ -1658,6 +1705,121 @@ function beginsWith($str, $sub)
     return (strncmp($str, $sub, strlen($sub)) == 0);
 }
 //--------------------------------------------------------------
+//FROM TXP CORE - REQUIRED TO RUN ON USER Side
+function asv_tumblelogimage_data($file , $meta = '')
+{
+
+	global $txpcfg, $extensions, $prefs, $file_max_upload_size;
+
+	extract($txpcfg);
+	
+	$extensions = array(0,'.gif','.jpg','.png','.swf',0,0,0,0,0,0,0,0,'.swf');
+	if(!defined("IMPATH")) define("IMPATH",$path_to_site.'/'.$img_dir.'/');
+	include_once(txpath.'/lib/class.thumb.php');
+
+	list($w, $h, $extension) = getimagesize($file);
+
+	if (($file !== false) && @$extensions[$extension])
+	{
+		$ext = $extensions[$extension];
+
+		if ($meta == false)
+		{
+			$meta = array('category' => '', 'caption' => '', 'alt' => '');
+		}
+
+		extract($meta);
+
+		$q ="
+			name = '$name',
+			ext = '$ext',
+			w = $w,
+			h = $h,
+			alt = '$alt',
+			caption = '$caption',
+			category = '$category',
+			date = $date,
+			author = ''
+		";
+
+		if (empty($id))
+		{
+			$rs = safe_insert('txp_image', $q);
+
+			$id = $GLOBALS['ID'] = mysql_insert_id();
+		}
+
+		else
+		{
+			$id = assert_int($id);
+
+			$rs = safe_update('txp_image', $q, "id = $id");
+		}
+
+		if (!$rs)
+		{
+			return gTxt('image_save_error');
+		}
+
+		else
+		{
+			$newpath = IMPATH.$id.$ext;
+
+			if (shift_uploaded_file($file, $newpath) == false)
+			{
+				$id = assert_int($id);
+
+				safe_delete('txp_image', "id = $id");
+
+				safe_alter('txp_image', "auto_increment = $id");
+
+				if (isset($GLOBALS['ID']))
+				{
+					unset( $GLOBALS['ID']);
+				}
+
+				return $newpath.sp.gTxt('upload_dir_perms');
+			}
+
+			else
+			{
+				@chmod($newpath, 0644);
+
+				// Auto-generate a thumbnail using the last settings
+				if (isset($prefs['thumb_w'], $prefs['thumb_h'], $prefs['thumb_crop'])) {
+					if (intval($prefs['thumb_w']) > 0 || intval($prefs['thumb_h']) > 0) {
+						$t = new txp_thumb( $id );
+
+						$t->crop = ($prefs['thumb_crop'] == '1');
+						$t->hint = '0';
+						$t->width = intval($prefs['thumb_w']);
+						$t->height = intval($prefs['thumb_h']);
+
+						$t->write();
+					}
+				}
+
+				$message = gTxt('image_uploaded', array('{name}' => $name));
+				update_lastmod();
+
+				return array($message, $id);
+			}
+		}
+	}
+
+	else
+	{
+		if ($file === false)
+		{
+			return upload_get_errormsg($error);
+		}
+
+		else
+		{
+			return gTxt('only_graphic_files_allowed');
+		}
+	}
+}
 # --- END PLUGIN CODE ---
 
 ?>
