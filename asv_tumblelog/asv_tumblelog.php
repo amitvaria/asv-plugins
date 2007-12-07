@@ -10,7 +10,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'asv_tumblelog';
 
-$plugin['version'] = '1.6.1';
+$plugin['version'] = '1.6.2';
 $plugin['author'] = 'Amit Varia';
 $plugin['author_uri'] = 'http://www.amitvaria.com/';
 $plugin['description'] = 'Implementing the greatness of tumblelogs';
@@ -565,7 +565,7 @@ function asv_tumblelog_mini($step)
 					override_form   = '".$formname."',
 					url_title       = '',
 					$customField 		= '".(($method!='post')? $sourceurl: "")."',
-					AnnotateInvite  = 'comments',
+					AnnotateInvite  = '$comments_default_invite',
 					uid             = '".md5(uniqid(rand(),true))."',
 					feed_time       = now()"
 				);
