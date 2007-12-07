@@ -3,6 +3,7 @@
 	<name>asv-plugins</name>
 	<comment></comment>
 	<projects>
+		<project>TXP</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
