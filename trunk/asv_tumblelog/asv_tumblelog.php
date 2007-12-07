@@ -303,7 +303,7 @@ function asv_tumblelog_feeds($step)
 	
 				if($rsspath){
 				
-					list($title, $favicon, $url) = asv_tumblelog_verifyFeed($rsspath, $asv_tumblelog_simplepie);
+					list($title, $favicon, $url) = asv_tumblelog_verifyfeed($rsspath, $asv_tumblelog_simplepie);
 		
 					if($title && $rsspath){
 					
@@ -1735,7 +1735,7 @@ function asv_tumblelog_quickSort($items) {//from bit_rss
     }
 }
 //--------------------------------------------------------------
-function asv_tumblelog_verifyFeed($feed, $simplepie)
+function asv_tumblelog_verifyfeed($feed, $simplepie)
 {
 	//Get SimplePie
 	require_once($simplepie);
@@ -1749,7 +1749,11 @@ function asv_tumblelog_verifyFeed($feed, $simplepie)
 	//Get the feed
 	$success = $thefeed->init();
 	
-	return ($success)? array($thefeed->get_title(), $thefeed->get_favicon(), $thefeed->get_permalink()) :  false;
+	$title = $thefeed->get_title();
+	$logo = ($thefeed->get_image_url())? $thefeed->get_image_url() : $thefeed->get_favicon();
+	$permalink = $thefeed->get_permalink();
+	
+	return ($success)? array($title, $logo, $permalink) :  false;
 
 }
 //--------------------------------------------------------------
