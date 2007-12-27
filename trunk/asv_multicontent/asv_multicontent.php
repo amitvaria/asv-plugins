@@ -96,6 +96,7 @@ function asv_insert_image($event, $step)
 			function asv_insert_article_image(item)
 			{
 				var type = $(item).val();
+				window.parent.$('#advanced').show();
 				if(type == "simple"){			
 					window.parent.$('#article-image').val($('input:hidden[@name=id]').val());
 				}
