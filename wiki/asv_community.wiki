@@ -38,29 +38,17 @@ asv_community_group_members
  group_id 
 }
 
-asv_community_article_permissions
+asv_community_permissions
 {
  id
  article_id
- type (member, group)
- type_id
+ type (article, category, section, file, image)
+ type_id (varchar(255))
+ level (member, group)
+ level_id
 }
 
-asv_community_category_permissions
-{
- id
- category_name
- type (member, group)
- type_id
-}
-
-asv_community_section_permissions
-{
- id
- section_name
- type (member, group)
- type_id
-}
+  * If accessible to all guests/memebers, an ID of 0 will be used.
 
 = Hierarchy = 
 Article permissions will trump category permissions, and category permissions will trump section permissions. Therefore you could limit 1 section a specific group but have categories in that section open to them.
