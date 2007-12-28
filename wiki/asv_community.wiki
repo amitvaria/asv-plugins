@@ -15,6 +15,7 @@ Any article that requires permission to be viewed, will be marked as hidden. The
 
 = Tables =
 In order to grant members permissions, the following new tables are required:
+
 asv_community_members
 {
  id
@@ -23,17 +24,20 @@ asv_community_members
  username
  password
 }
+
 asv_community_groups
 {
  id
  name
 }
+
 asv_community_group_members
 {
  id
  member_id
  group_id 
 }
+
 asv_community_article_permissions
 {
  id
@@ -41,13 +45,36 @@ asv_community_article_permissions
  type (member, group)
  type_id
 }
+
 asv_community_category_permissions
 {
  id
  category_name
- 
+ type (member, group)
+ type_id
 }
 
+asv_community_section_permissions
+{
+ id
+ section_name
+ type (member, group)
+ type_id
+}
+
+= Hierarchy = 
+Article permissions will trump category permissions, and category permissions will trump section permissions. Therefore you could limit 1 section a specific group but have categories in that section open to them.
+
+= asv_community_article =
+The original txp:article tag will need to replaced with the new asv_community_article tags, which will verify permissions before display the article or article list.
+
+== The process ==
+  * call asv_community_article()
+  * find member id
+  * find group id's for member
+  * get list of approved categories
+  * get list of approved sections
+  * SELECT * FROM textpattern WHERE section in (approved_sections) AND category in (approved_categories) AND 
 
 = Current Issues =
 As it stands right now, all TXP users can see all generated content through the backend. Without modifying the TXP core, there is no way to limit the visibility to them.
