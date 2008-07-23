@@ -50,6 +50,16 @@ if (@txpinterface == 'admin') {
 	//=============================================================
 }
 
+asv_panels_register_callback('title', 'asv_panels_title_setup', 'asv_panels_title_display');
+
+function asv_panels_title_setup(){
+	
+}
+
+function asv_panels_title_display(){
+	
+}
+
 function asv_panels_install($event, $step){
 	//CREATE TABLE asv_panels
 	if(safe_query("SHOW TABLES LIKE '".safe_pfx('asv_panels')."'"))
@@ -89,6 +99,36 @@ function asv_panels_install($event, $step){
 				}
 			}
 		}
+		
+		//add the options table
+				$result = safe_query("CREATE TABLE IF NOT EXISTS `".PFX."asv_panels_options`(
+			`key` varchar(64) NOT NULL default '',
+			`value` varchar(256) NOT NULL default '',
+			 PRIMARY KEY  (`key`)
+			 ) $tabletype PACK_KEYS=1 AUTO_INCREMENT=2 ");
+
+		if($rs = safe_show('COLUMNS', 'asv_panels_options'))
+		{
+			$design_col = array('key', 'value');
+			$exist_col = array();
+			foreach($rs as $col)
+			{
+				$exist_col[] = $col['Field'];
+			}
+			$diff = array_diff($design_col, $exist_col);
+			foreach($diff as $col)
+			{
+				switch($col)
+				{
+					case 'name':
+						safe_alter('asv_panels_options', "ADD `key` varchar(64) NOT NULL default ''");
+						break;
+					case 'design':
+						safe_alter('asv_panels_options', "ADD `value` varchar(256) NOT NULL default ''");
+						break;
+				}
+			}
+		}
 	}
 	//ADD COLUMN (PANEL) to textpattern
 	
@@ -98,6 +138,8 @@ function asv_panels_install($event, $step){
 function asv_panels_uninstall($event, $step){
 	//REMOVE TABLE asv_panels
 	safe_query("DROP TABLE IF EXISTS `".PFX."asv_panels`");
+	//REMOVE TABLE asv_panels_options
+	safe_query("DROP TABLE IF EXISTS `".PFX."asv_panels_options`");
 	//REMOVE COLUMN (PANEL) from textpattern
 	
 	asv_panels_list($event, $step);
@@ -229,7 +271,6 @@ function asv_panels_save($event, $step)
 	return;
 }
 
-
 function asv_panels_js($default){
 $savenew = " oldname: \"$default\",";
 if($default=="")
@@ -248,36 +289,7 @@ echo <<<EOD
 				.find('.up, .down').removeClass('disabled').end()
 				.filter(':first').addClass('first').find('.up').addClass('disabled').end().end()
 				.filter(':last').addClass('last').find('.down').addClass('disabled').end().end();
-		};
-		
-		var moveUpDown = function(){
-			var link = $(this),
-				dl = link.parents('dl'),
-				prev = dl.prev('dl'),
-				next = dl.next('dl');
-		
-			if(link.is('.up') && prev.length > 0)
-				dl.insertBefore(prev);
-		
-			if(link.is('.down') && next.length > 0)
-				dl.insertAfter(next);
-		
-			updateUpDown(dl.parent());
-		};
-		
-		var addItem = function(){
-			var sortable = $(this).parents('.ui-sortable');
-			var options = '<span class="options"><a class="up">up</a><a class="down">down</a></span>';
-			var tpl = '<dl class="sort"><dt>{name}' + options + '</dt><dd>{desc}</dd></dl>';
-			var html = tpl.replace(/{name}/g, 'Dynamic name :D').replace(/{desc}/g, 'Description');
-		
-			sortable.append(html).sortable('refresh').find('a.up, a.down').bind('click', moveUpDown);
-			updateUpDown(sortable);
-		};
-		
-		var emptyTrashCan = function(item){
-			item.remove();
-		};
+		};		
 		
 		var sortableChange = function(e, ui){
 			if(ui.sender){
@@ -327,19 +339,14 @@ name:$("#name").val(), design: data },
 		};
 		
 		$(document).ready(function(){
-			var els = ['#header', '#content', '#sidebar', '#footer', '#trashcan', '#fields'];
+			var els = ['#header', '#content', '#sidebar', '#footer', '#fields'];
 			var \$els = $(els.toString());
 			
-			/*$('h2', \$els.slice(0,-1)).append('<span class="options"><a class="add">add</a></span>');*/
-			/*$('dt', \$els).append('<span class="options"><a class="up">up</a><a class="down">down</a></span>');*/
-			
-			$('a.add').bind('click', addItem);
-			$('a.up, a.down').bind('click', moveUpDown);
 			$('#save').bind('click', savePage);
 			
-			/*\$els.each(function(){
+			\$els.each(function(){
 				updateUpDown(this);
-			});*/
+			});
 			
 			\$els.sortable({
 				items: '> dl',
@@ -439,7 +446,28 @@ function asv_panels_create($event, $step)
 	
 	echo "</td></tr><tr><td><button id=\"save\">save</button></table>";
 }
+
+function asv_panels_register_callback($name, $setup_func, $display_func)
+{
+	global $asv_panels_widgets;
+	
+	$asv_panels_widgets[] = array('name'=>$name, 'setup'=>$setup_func, 'display'=>$display_func);
+	
+}
+
+
+ 
 function asv_panels_default_panel(){
+	global $asv_panels_widgets;
+	
+	$widgets = "";
+	foreach($asv_panels_widgets as $widget)
+	{
+		$widgets .= '<dl id="'.$widget['name'].'" class="sort">'.
+			'<dt>'.$widget['name'].'</dt>'.
+			'</dl>';
+	}
+	
 echo <<<EOD
 	<div id="container">
 		<div id="header" class="ui-sortable">
@@ -464,15 +492,23 @@ echo <<<EOD
 
 		<div id="fields" class="ui-sortable">
 			<h2>Available Fields</h2>
+		
+			$widgets
+			
+		</div>
+	</div>
+	
+EOD;
+/*
 			<dl id="title" class="sort">
 				<dt>title</dt>
-				<dd><input type="checkbox" />Include label</dd>
+				<dd class="include-label"><input type="checkbox" />Include label</dd>
 			</dl>
 			<dl id="body" class="sort">
 				<dt>body</dt>
-				<dd><input type="checkbox" />Include label</dd>
+				<dd class=><input type="checkbox" />Include label</dd>
 			</dl>
-			<dl id="excerpt" class="sort"><dt>excerpt</dt></dl>
+ <dl id="excerpt" class="sort"><dt>excerpt</dt></dl>
 			<dl id="section" class="sort"><dt>section</dt></dl>
 			<dl id="category1" class="sort"><dt>category1</dt></dl>
 			<dl id="category2" class="sort"><dt>category2</dt></dl>
@@ -485,9 +521,7 @@ echo <<<EOD
 			<dl id="article_markup" class="sort"><dt>article markup</dt></dl>
 			<dl id="excerpt_markup" class="sort"><dt>excerpt markup</dt></dl>
 			<dl id="override_form" class="sort"><dt>override form</dt></dl>
-		</div>
-	</div>
-EOD;
+			*/
 }
 
 function asv_panels_style(){
