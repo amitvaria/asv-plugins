@@ -52,7 +52,10 @@ if (@txpinterface == 'admin') {
 
 asv_panels_register_callback('title', 'asv_panels_title_setup', 'asv_panels_title_display');
 
-function asv_panels_title_setup(){
+function asv_panels_title_setup()
+{
+
+	return "options will go here";
 	
 }
 
@@ -464,8 +467,15 @@ function asv_panels_default_panel(){
 	foreach($asv_panels_widgets as $widget)
 	{
 		$widgets .= '<dl id="'.$widget['name'].'" class="sort">'.
-			'<dt>'.$widget['name'].'</dt>'.
-			'</dl>';
+			'<dt>'.$widget['name'].'</dt>';
+			
+		//add the setup piece
+		if(is_callable($widget['setup']))
+		{
+			$widgets .= '<dd><div>'.call_user_func($widget['setup']).'</div></dd>';
+		}
+			
+		$widgets .= '</dl>';
 	}
 	
 echo <<<EOD
