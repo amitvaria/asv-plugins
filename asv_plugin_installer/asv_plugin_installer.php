@@ -43,66 +43,159 @@ if (@txpinterface == 'admin') {
 }
 
 function asv_pluginstaller($event, $step) {
-	global $prefs,$rss_skip_preview,$rss_activate, $asv_plugin_source;
+	global $prefs,$asv_skip_preview,$asv_activate, $asv_simplepie;
 
-	if (!isset($rss_skip_preview)) {
-		$rs = set_pref("rss_skip_preview", 0, "admin", "2", "yesnoradio");
+	//-------------------------------------
+	//setup prefs if not already installed
+	if (!isset($asv_skip_preview)) {
+		$rs = set_pref("asv_skip_preview", 0, "admin", "2", "yesnoradio");
 	}
 
-	if (!isset($rss_activate)) {
-		$rs = set_pref("rss_activate", 0, "admin", "2", "yesnoradio");
+	if (!isset($asv_activate)) {
+		$rs = set_pref("asv_activate", 0, "admin", "2", "yesnoradio");
 	}
 	
-	if (!isset($asv_plugin_source)) {
-		$rs = set_pref("asv_plugin_source", 'http://www.wilshireone.com/?pluginfeed=1', "admin", "2");
-		$asv_plugin_source = 'http://www.wilshireone.com/?pluginfeed=1';
+	if (!isset($asv_simplepie)) {
+		$rs = set_pref("asv_simplepie", txpath.'lib/simplepie.inc', "admin", "2");
 	}
-
+	//-------------------------------------
+	
+	//-------------------------------------
+	//save preferences
 	if (ps("save")) {
 			pagetop("PlugInstaller", "Preferences Saved");
-			safe_update("txp_prefs", "val = '".ps('rss_skip_preview')."'","name = 'rss_skip_preview' and prefs_id ='1'");
-			safe_update("txp_prefs", "val = '".ps('rss_activate')."'","name = 'rss_activate' and prefs_id ='1'");
-			safe_update("txp_prefs", "val = '".ps('asv_plugin_source')."'","name = 'asv_plugin_source' and prefs_id ='1'");
-			header("Location: index.php?event=asv_pluginstall");
-			exit;
+			safe_update("txp_prefs", "val = '".ps('asv_skip_preview')."'","name = 'asv_skip_preview' and prefs_id ='1'");
+			safe_update("txp_prefs", "val = '".ps('asv_activate')."'","name = 'asv_activate' and prefs_id ='1'");
+			safe_update("txp_prefs", "val = '".ps('asv_simplepie')."'","name = 'asv_simplepie' and prefs_id ='1'");
 	}
-
+	//-------------------------------------
+	
+	//-------------------------------------
+	//install a new plugins	
 	if (ps("install_new")) {
-		$contents =  rss_fetchURL(ps("plugin"));
+		$contents =  asv_fetchURL(ps("plugin"));
 		if ($contents) {
 			$plugin64 = preg_replace('@.*\$plugin=\'([\w=+/]+)\'.*@s', '$1', $contents);
 			$_POST['plugin'] = $plugin64;
 			$_POST['plugin64'] = $plugin64;
 			$event = "plugin";
 			include(txpath . '/include/txp_plugin.php');
-			if ($rss_skip_preview) {
+			if ($asv_skip_preview) {
 				$res = plugin_install();
-				if ($rss_activate) safe_update('txp_plugin', "status = 1", "name = '".doSlash(ps('name'))."'");
+				if ($asv_activate) safe_update('txp_plugin', "status = 1", "name = '".doSlash(ps('name'))."'");
 				header("Location: index.php?event=asv_pluginstall");
 			}
 			exit;
 		}
 	}
-
+	//-------------------------------------
+	
+	//-------------------------------------
+	//add a new repository
+	if ($step=="add_repo") {
+		
+		if(ps('asv_distributor_url')){
+			//Get SimplePie
+			require_once("/home/amitvari/public_html/textpattern/lib/simplepie.inc");
+			
+			$url = doSlash(ps("asv_distributor_url"));
+			
+			//Create and setup SimplePie Instance
+			$thefeed = new SimplePie();
+			$thefeed->set_feed_url($url);
+			$thefeed->enable_cache(false);
+			$thefeed->handle_content_type();
+			
+			//Get the feed
+			$success = $thefeed->init();
+			
+			if($success && $thefeed->get_title()){
+				$title = doSlash($thefeed->get_title());
+				safe_insert("asv_plugin_sites",
+								"name = '$title',
+								 url ='$url'");					
+			}
+			else{
+				$message = "feed not found";
+			}
+		}
+		else{
+			$message = "url required";
+		}
+	}
+	//-------------------------------------
+	
+	//-------------------------------------
+	//Change status
 	if ($step == "switch_status") {
 		extract(gpsa(array('name', 'status')));
 		$change = ($status) ? 0 : 1;
 		safe_update('txp_plugin', "status = $change", "name = '".doSlash($name)."'");
 	}
+	//-------------------------------------
 
+	//-------------------------------------
+	//delete the plugin
 	if ($step == "plugin_delete") {
-		$name = doSlash(ps('plugtitle'));
+		$name = doSlash(ps('plugtitle'));		
 		safe_delete('txp_plugin', "name = '$name'");
 	}
-
-  pagetop("PlugInstaller");
-
-	if (ps("install_new") && !$contents) {
-			echo graf(strong("Could not connect to wilshire|one (asv'd)."), ' style="text-align:center;"');
+	//-------------------------------------
+	
+	//-------------------------------------
+	//install the plugininstaller
+	if ($step == "install_plugin") {
+		asv_plugin_installer_install($event, $step);
 	}
+	//-------------------------------------
+	
+	//-------------------------------------
+	//uninstall the pluginisntaller
+	if ($step == "uninstall_plugin") {
+		asv_plugin_installer_uninstall($event, $step);
+	}
+	//-------------------------------------
+	
+	$message = (isset($message))? $message : '';
+	
+	pagetop("PlugInstaller", $message);
 
+	if (ps("install_new") && ps("name") && !$contents) {
+			echo graf(strong("Could not connect to ".ps("name")), ' style="text-align:center;"');
+	}
+	
+	//setup the output array
+	$out = array();
+	
+	//start the table
+	$out[] = startTable("list","","edit-table").n;
+	
+	//setup some common styles and vars for display
+	$colspan = 8;
+	$tdlatts = ' style="vertical-align:middle;"';
+	$tdatts = ' style="text-align:center;vertical-align:middle;"';
+	$preflab = ' style="text-align:right;vertical-align:middle"';			
+	
+	//show the preferences part
+	$out[] = form(
+		tr(tda(tag("PlugInstaller Preferences",'h1'), ' colspan="'.$colspan.'" style="text-align:center;background:#1f1f1f;color:#f1f1f1;padding: 10px 0 0;margin:0;"')).
+		tr(tda("Skip Install Preview:", $preflab).tdcs(yesnoRadio("asv_skip_preview", $asv_skip_preview),$colspan-1)).
+		tr(tda("Active on Install:", $preflab).tdcs(yesnoRadio("asv_activate", $asv_activate),$colspan-1)).
+		tr(tda("Simplepie Path:", $preflab).tdcs(fInput("text","asv_simple", $asv_simplepie,'', '', '', '', '', ''),$colspan-1)).
+		tr(tdcs('<a href="?event=asv_pluginstall&step=install_plugin">Install</a> | <a href="?event=asv_pluginstall&step=uninstall_plugin">Uninstall</a>', $colspan)).
+		tr(tdcs(fInput("submit","save",gTxt("save_button"),"publish").eInput("asv_pluginstall").sInput('saveprefs'),$colspan-1)));
+	
+	//show the repositories
+	$out[] = tr(tda(tag("Repositories",'h1'), ' colspan="'.$colspan.'" style="text-align:center;background:#1f1f1f;color:#f1f1f1;padding: 10px 0 0;margin:0;"'));
+
+	$out[] = form(
+		tr(tdcs(fInput("text","asv_distributor_url", '','', '', '', '100%', '', ''),$colspan-1).
+			tda(fInput("submit","add_url",gTxt("add"),"publish").eInput("asv_pluginstall").sInput('add_repo'))));
+	
+	$rs = safe_rows('*','asv_plugin_sites', '1=1');
+	
 	$magfiles = txpath . '/magpie/rss_fetch.inc';
-
+	
 	if (file_exists($magfiles)) {
 		require_once($magfiles);
 
@@ -111,101 +204,85 @@ function asv_pluginstaller($event, $step) {
 		$MAGPIE_CACHE_AGE = "1800";
 		$MAGPIE_CACHE_FRESH_ONLY = "0";
 
-		//		$rss = fetch_rss("http://www.wilshireone.com/?pluginfeed=1");
-		$rss = fetch_rss($asv_plugin_source);
-		
-		//dmp($rss);
-
-		if ($rss) {
-
-			$myplugs = safe_rows("*, md5(code) as md5", "txp_plugin", "1 order by name");
-
-			$tdlatts = ' style="vertical-align:middle;"';
-			$tdatts = ' style="text-align:center;vertical-align:middle;"';
-			$colspan = 8;
-
-			$out = array();
-			$out[] = startTable("list","","edit-table").n;
-
-			$out[] = tr(tda(tag("wilshire|one PlugInstaller (asv'd)",'h1'), ' colspan="'.$colspan.'" style="text-align:center;background:#1f1f1f;color:#f1f1f1;padding: 10px 0 0;margin:0;"'));
-
-			$out[] = tr(
-						tda(strong("Plugin Name"), $tdlatts).
-						tda(strong("Your Version"), $tdatts).
-						tda(strong("Current Version"), $tdatts).
-						tda(strong("Active?"), $tdatts).
-						tda(strong("Help"), $tdatts).
-						tda(strong("Status"), $tdatts).
-						tda(strong("Add"), $tdatts).
-						tda(strong("Remove"), $tdatts)
-					).n;
-
-			foreach(array_slice($rss->items,0) as $plug) {
-				$installed = 0;
-				$modified = 0;
-				extract($plug);
-
-				foreach($myplugs as $myplug){
-					if (array_search($title,$myplug)) {
-						$installed=$myplug['version'];
-						$modified = (strtolower($myplug['md5']) != strtolower($myplug['code_md5']));
-						break;
+		foreach($rs as $a){
+	
+			$rss = fetch_rss($a['url']);
+	
+			if ($rss) {
+	
+				$myplugs = safe_rows("*, md5(code) as md5", "txp_plugin", "1 order by name");
+	
+	
+				$out[] = tr(tda(tag($a['name'],'h1'), ' colspan="'.$colspan.'" style="text-align:center;background:#1f1f1f;color:#f1f1f1;padding: 10px 0 0;margin:0;"'));
+	
+				$out[] = tr(
+							tda(strong("Plugin Name"), $tdlatts).
+							tda(strong("Your Version"), $tdatts).
+							tda(strong("Current Version"), $tdatts).
+							tda(strong("Active?"), $tdatts).
+							tda(strong("Help"), $tdatts).
+							tda(strong("Status"), $tdatts).
+							tda(strong("Add"), $tdatts).
+							tda(strong("Remove"), $tdatts)
+						).n;
+	
+				foreach(array_slice($rss->items,0) as $plug) {
+					$installed = 0;
+					$modified = 0;
+					extract($plug);
+	
+					foreach($myplugs as $myplug){
+						if (array_search($title,$myplug)) {
+							$installed=$myplug['version'];
+							$modified = (strtolower($myplug['md5']) != strtolower($myplug['code_md5']));
+							break;
+						}
 					}
+	
+					$tratts="";
+					$isInstalled = ($installed != 0);
+	
+					if (!$isInstalled) {
+						$install_status = "Not installed";
+						$tratts = ' class="spam"';
+					} else {
+						$install_status = ($myplug['version'] == $version) ? "No Updates" : " Update Available!";
+					}
+	
+					$instlab = (!$isInstalled) ? gTxt('install') : gTxt('update');
+					$inststy = (!$isInstalled || $install_status == "No Updates") ? "smallerbox" : "publish";
+	
+					$help = ($isInstalled) ?
+						'<a href="?event=plugin'.a.'step=plugin_help'.a.'name='.$title.'">'.gTxt('help').'</a>' :
+						"&nbsp;";
+	
+					$out[] =
+						tr(
+							tda($title." ".($modified ? " (modified)" : ''), $tdlatts).
+							tda(($isInstalled) ? $installed : "&nbsp;", $tdatts).
+							tda($version, $tdatts).
+							tda(($isInstalled) ? asv_status_link($myplug['status'], $title, yes_no($myplug['status'])) : "&nbsp;", $tdatts).
+							tda($help, $tdatts).
+							tda($install_status, $tdatts).
+							tda(form(
+								'<input type="hidden" name="plugin" value="'.$link.'" />'.n.
+								'<input type="hidden" name="name" value="'.$title.'" />'.n.
+										fInput("submit", "install_new", $instlab, $inststy).n.
+										eInput("asv_pluginstall").sInput("plugin_verify").n
+									), $tdatts).n.
+									tda(($isInstalled) ? dLink('asv_pluginstall', 'plugin_delete', 'plugtitle', $title) : "&nbsp;", $tdatts).n
+						, $tratts).n;
 				}
-
-				$tratts="";
-				$isInstalled = ($installed != 0);
-
-				if (!$isInstalled) {
-					$install_status = "Not installed";
-					$tratts = ' class="spam"';
-				} else {
-					$install_status = ($myplug['version'] == $version) ? "No Updates" : " Update Available!";
-				}
-
-				$instlab = (!$isInstalled) ? gTxt('install') : gTxt('update');
-				$inststy = (!$isInstalled || $install_status == "No Updates") ? "smallerbox" : "publish";
-
-				$help = ($isInstalled) ?
-					'<a href="?event=plugin'.a.'step=plugin_help'.a.'name='.$title.'">'.gTxt('help').'</a>' :
-					"&nbsp;";
-
-				$out[] =
-					tr(
-						tda($title." ".($modified ? " (modified)" : ''), $tdlatts).
-						tda(($isInstalled) ? $installed : "&nbsp;", $tdatts).
-						tda($version, $tdatts).
-						tda(($isInstalled) ? rss_status_link($myplug['status'], $title, yes_no($myplug['status'])) : "&nbsp;", $tdatts).
-						tda($help, $tdatts).
-						tda($install_status, $tdatts).
-						tda(form(
-							'<input type="hidden" name="plugin" value="'.$link.'" />'.n.
-							'<input type="hidden" name="name" value="'.$title.'" />'.n.
-									fInput("submit", "install_new", $instlab, $inststy).n.
-									eInput("asv_pluginstall").sInput("plugin_verify").n
-								), $tdatts).n.
-								tda(($isInstalled) ? dLink('asv_pluginstall', 'plugin_delete', 'plugtitle', $title) : "&nbsp;", $tdatts).n
-					, $tratts).n;
+		
+			} else {
+				echo graf(strong("Could not connect to wilshire|one."), ' style="text-align:center;"');
 			}
-
-			$preflab = ' style="text-align:right;vertical-align:middle"';
-					
-
-			$out[] = form(
-				tr(tda(tag("wilshire|one PlugInstaller (asv'd) Preferences",'h1'), ' colspan="'.$colspan.'" style="text-align:center;background:#1f1f1f;color:#f1f1f1;padding: 10px 0 0;margin:0;"')).
-				tr(tda(tag('Source: ', 'label').fInput('text', 'asv_plugin_source', $asv_plugin_source, 'edit', '', '', 30))).
-					tr(tda("Skip Install Preview:", $preflab).tdcs(yesnoRadio("rss_skip_preview", $rss_skip_preview),8)).
-				tr(tda("Active on Install:", $preflab).tdcs(yesnoRadio("rss_activate", $rss_activate),8)).
-				tr(tdcs(fInput("submit","save",gTxt("save_button"),"publish").eInput("asv_pluginstall").sInput('saveprefs'),8)).
-				tr(tdcs(graf(href("Visit wilshire|one Textpattern Plugins",'http://www.wilshireone.com/textpattern-plugins'), ' style="text-align:center;"'),8)));
-
-			$out[] = endTable().n;
-
-
-			echo implode('', $out);
-		} else {
-			echo graf(strong("Could not connect to wilshire|one."), ' style="text-align:center;"');
 		}
+		
+		$out[] = endTable().n;
+
+		echo implode('', $out);
+		
 	} else {
 		echo graf(strong("Magpie Files Not Installed.".br."Place files in /textpattern/magpie"), ' style="text-align:center;"');
 	}
@@ -213,7 +290,7 @@ function asv_pluginstaller($event, $step) {
 
 // -------------------------------------------------------------
 
-function rss_fetchURL( $url ) {
+function asv_fetchURL( $url ) {
 /*
    $url_parsed = parse_url($url);
    $host = $url_parsed["host"];
@@ -266,7 +343,7 @@ function rss_fetchURL( $url ) {
 
 // -------------------------------------------------------------
 
-function rss_status_link($status,$name,$linktext) {
+function asv_status_link($status,$name,$linktext) {
 	$out = '<a href="index.php?';
 	$out .= 'event=asv_pluginstall&#38;step=switch_status&#38;status='.
 		$status.'&#38;name='.urlencode($name).'"';
@@ -285,7 +362,7 @@ function asv_plugin_installer_install($event, $step){
 						? " ENGINE=MyISAM "
 						: " TYPE=MyISAM ";
 
-		$result = safe_query("CREATE TABLE IF NOT EXISTS `".PFX."asv_panels`(
+		$result = safe_query("CREATE TABLE IF NOT EXISTS `".PFX."asv_plugin_sites`(
 			`name` varchar(64) NOT NULL default '',
 			`url` varchar(255) NOT NULL default '',
 			 PRIMARY KEY  (`name`)
