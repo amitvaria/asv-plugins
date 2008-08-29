@@ -274,6 +274,52 @@ function rss_status_link($status,$name,$linktext) {
 	return $out;
 }
 
+function asv_plugin_installer_install($event, $step){
+	//CREATE TABLE asv_panels
+	if(safe_query("SHOW TABLES LIKE '".safe_pfx('asv_plugin_sites')."'"))
+	{
+		$version = mysql_get_server_info();
+
+		//Use "ENGINE" if version of MySQL > (4.0.18 or 4.1.2)
+		$tabletype = ( intval($version[0]) >= 5 || preg_match('#^4\.(0\.[2-9]|(1[89]))|(1\.[2-9])#',$version))
+						? " ENGINE=MyISAM "
+						: " TYPE=MyISAM ";
+
+		$result = safe_query("CREATE TABLE IF NOT EXISTS `".PFX."asv_panels`(
+			`name` varchar(64) NOT NULL default '',
+			`url` varchar(255) NOT NULL default '',
+			 PRIMARY KEY  (`name`)
+			 ) $tabletype PACK_KEYS=1 AUTO_INCREMENT=2 ");
+
+		if($rs = safe_show('COLUMNS', 'asv_plugin_sites'))
+		{
+			$design_col = array('ID', 'name', 'url');
+			$exist_col = array();
+			foreach($rs as $col)
+			{
+				$exist_col[] = $col['Field'];
+			}
+			$diff = array_diff($design_col, $exist_col);
+			foreach($diff as $col)
+			{
+				switch($col)
+				{
+					case 'name':
+						safe_alter('asv_plugin_sites', "ADD `name` varchar(64) NOT NULL default ''");
+						break;
+					case 'design':
+						safe_alter('asv_plugin_sites', "ADD `url` varchar(255) NOT NULL default ''");
+						break;
+				}
+			}
+		}		
+	}
+}
+
+function asv_plugin_installer_uninstall($event, $step){
+	//REMOVE TABLE asv_plugin_sites
+	safe_query("DROP TABLE IF EXISTS `".PFX."asv_plugin_sites`");
+}
 
 
 # --- END PLUGIN CODE ---
