@@ -10,7 +10,7 @@
 // file name. Uncomment and edit this line to override:
 $plugin['name'] = 'asv_pluginfeed';
 
-$plugin['version'] = '1.0';
+$plugin['version'] = '0.1';
 $plugin['author'] = 'Amit Varia';
 $plugin['author_uri'] = 'http://www.amitvaria.com/';
 $plugin['description'] = 'Creates a feed that can be read by asv_plugininstaller';
@@ -43,7 +43,7 @@ if(gps('pluginfeed')==1)
 	
 	header("Content-Type: application/xml; charset=ISO-8859-1"); 
 	echo '<rss version="0.92"><channel>';
-	echo '<title>Amit Varia\'s Plugins!</title>';
+	echo '<title>Amit Varia\'s Plugins</title>';
 	echo '<link>http://www.amitvaria.com</link>';
 	echo '<description>my plugins</description>';
 
