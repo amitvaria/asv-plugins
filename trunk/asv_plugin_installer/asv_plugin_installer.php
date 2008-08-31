@@ -27,7 +27,11 @@ $plugin['type'] = 1;
 if (0) {
 ?>
 # --- BEGIN PLUGIN HELP ---
-h1. help!
+h1. asv_pluginstaller
+
+h2. get plugins!
+
+p. <a href="?event=asv_pluginstall&step=install_plugin">Install</a> | <a href="?event=asv_pluginstall&step=uninstall_plugin">Uninstall</a>
 
 # --- END PLUGIN HELP ---
 <?php
@@ -43,30 +47,33 @@ if (@txpinterface == 'admin') {
 }
 
 function asv_pluginstaller($event, $step) {
-	global $prefs,$asv_skip_preview,$asv_activate, $asv_simplepie;
+	global $prefs,$asv_skip_preview,$asv_activate, $asv_plugin_simplepie, $txpath;
 
 	//-------------------------------------
 	//setup prefs if not already installed
 	if (!isset($asv_skip_preview)) {
 		$rs = set_pref("asv_skip_preview", 0, "admin", "2", "yesnoradio");
+		extract(get_prefs());
 	}
 
 	if (!isset($asv_activate)) {
 		$rs = set_pref("asv_activate", 0, "admin", "2", "yesnoradio");
+		extract(get_prefs());
 	}
 	
 	if (!isset($asv_simplepie)) {
-		$rs = set_pref("asv_simplepie", txpath.'lib/simplepie.inc', "admin", "2");
+		$rs = set_pref("asv_plugin_simplepie", txpath.'/lib/simplepie.inc', "admin", "2");
+		extract(get_prefs());
 	}
 	//-------------------------------------
 	
 	//-------------------------------------
 	//save preferences
 	if (ps("save")) {
-			pagetop("PlugInstaller", "Preferences Saved");
 			safe_update("txp_prefs", "val = '".ps('asv_skip_preview')."'","name = 'asv_skip_preview' and prefs_id ='1'");
 			safe_update("txp_prefs", "val = '".ps('asv_activate')."'","name = 'asv_activate' and prefs_id ='1'");
-			safe_update("txp_prefs", "val = '".ps('asv_simplepie')."'","name = 'asv_simplepie' and prefs_id ='1'");
+			safe_update("txp_prefs", "val = '".ps('asv_plugin_simplepie')."'","name = 'asv_plugin_simplepie' and prefs_id ='1'");
+			extract(get_prefs());
 	}
 	//-------------------------------------
 	
@@ -96,7 +103,7 @@ function asv_pluginstaller($event, $step) {
 		
 		if(ps('asv_distributor_url')){
 			//Get SimplePie
-			require_once("/home/amitvari/public_html/textpattern/lib/simplepie.inc");
+			require_once($asv_plugin_simplepie);
 			
 			$url = doSlash(ps("asv_distributor_url"));
 			
@@ -110,10 +117,27 @@ function asv_pluginstaller($event, $step) {
 			$success = $thefeed->init();
 			
 			if($success && $thefeed->get_title()){
-				$title = doSlash($thefeed->get_title());
-				safe_insert("asv_plugin_sites",
-								"name = '$title',
-								 url ='$url'");					
+				//get the txp feed version
+				$feed_version = $thefeed->get_channel_tags('', 'txpfeed');
+					if($feed_version[0]['attribs']['']['version'] >= 1){
+	
+					$title = doSlash($thefeed->get_title());
+					$exists = fetch('name', 'asv_plugin_sites', 'url', $url);
+					if($exists){
+						safe_update("asv_plugin_sites",
+										"name = '$title',
+										 url ='$url'",
+										 "name = '$exists'");					
+					}
+					else{
+						safe_insert("asv_plugin_sites",
+										"name = '$title',
+										 url ='$url'");					
+					}
+				}
+				else{
+					$message = gTxt('Not a txp plugin feed');
+				}
 			}
 			else{
 				$message = "feed not found";
@@ -124,7 +148,29 @@ function asv_pluginstaller($event, $step) {
 		}
 	}
 	//-------------------------------------
-	
+	//delete repository
+	if ($step == "delete_repo") {
+		if(gps('name')){
+			safe_delete("asv_plugin_sites", "name = '".doSlash(gps('name'))."'");
+		}
+	}
+	//-------------------------------------
+	//refresh repository
+	if ($step == "refresh_repo") {
+		if(gps('name')){
+			$url=fetch('url','asv_plugin_sites','name',gps('name'));
+			$filename = txpath.'/cache/'.sha1($url).'.spc';
+			if(file_exists($filename)){
+				unlink($filename);
+				$message = gTxt('Refreshed', array('{name}' => htmlspecialchars(gps('name'))));
+			}
+			else{
+				$message = gTxt('Unable to Refresh', array('{name}' => htmlspecialchars(gps('name'))));
+			}
+		}
+	}
+	//-------------------------------------
+
 	//-------------------------------------
 	//Change status
 	if ($step == "switch_status") {
@@ -181,8 +227,8 @@ function asv_pluginstaller($event, $step) {
 		tr(tda(tag("PlugInstaller Preferences",'h1'), ' colspan="'.$colspan.'" style="text-align:center;background:#1f1f1f;color:#f1f1f1;padding: 10px 0 0;margin:0;"')).
 		tr(tda("Skip Install Preview:", $preflab).tdcs(yesnoRadio("asv_skip_preview", $asv_skip_preview),$colspan-1)).
 		tr(tda("Active on Install:", $preflab).tdcs(yesnoRadio("asv_activate", $asv_activate),$colspan-1)).
-		tr(tda("Simplepie Path:", $preflab).tdcs(fInput("text","asv_simple", $asv_simplepie,'', '', '', '', '', ''),$colspan-1)).
-		tr(tdcs('<a href="?event=asv_pluginstall&step=install_plugin">Install</a> | <a href="?event=asv_pluginstall&step=uninstall_plugin">Uninstall</a>', $colspan)).
+		tr(tda("Simplepie Path:", $preflab).tdcs(fInput("text","asv_plugin_simplepie", $asv_plugin_simplepie,'', '', '', '', '', ''),$colspan-1)).
+
 		tr(tdcs(fInput("submit","save",gTxt("save_button"),"publish").eInput("asv_pluginstall").sInput('saveprefs'),$colspan-1)));
 	
 	//show the repositories
@@ -194,26 +240,27 @@ function asv_pluginstaller($event, $step) {
 	
 	$rs = safe_rows('*','asv_plugin_sites', '1=1');
 	
-	$magfiles = txpath . '/magpie/rss_fetch.inc';
+	if (file_exists($asv_plugin_simplepie)) {
+		require_once($asv_plugin_simplepie);	
 	
-	if (file_exists($magfiles)) {
-		require_once($magfiles);
-
-		$MAGPIE_CACHE_ON = "1";
-		$MAGPIE_CACHE_DIR = "cache";
-		$MAGPIE_CACHE_AGE = "1800";
-		$MAGPIE_CACHE_FRESH_ONLY = "0";
+		//Create and setup SimplePie Instance
+		$thefeed = new SimplePie();
+		$thefeed->enable_cache(true);
+		$thefeed->set_cache_name_function('sha1');
+		$thefeed->handle_content_type();
 
 		foreach($rs as $a){
+			
+			$thefeed->set_feed_url($a['url']);
+			$success = $thefeed->init();
+			//$rss = fetch_rss($a['url']);
 	
-			$rss = fetch_rss($a['url']);
-	
-			if ($rss) {
+			if ($success) {
 	
 				$myplugs = safe_rows("*, md5(code) as md5", "txp_plugin", "1 order by name");
 	
 	
-				$out[] = tr(tda(tag($a['name'],'h1'), ' colspan="'.$colspan.'" style="text-align:center;background:#1f1f1f;color:#f1f1f1;padding: 10px 0 0;margin:0;"'));
+				$out[] = tr(tda(tag($a['name'].' (<a href="?event=asv_pluginstall&step=refresh_repo&name='.$a['name'].'">refresh</a>'.' | <a href="?event=asv_pluginstall&step=delete_repo&name='.$a['name'].'">delete</a>)','h1'), ' colspan="'.$colspan.'" style="text-align:center;background:#1f1f1f;color:#f1f1f1;padding: 10px 0 0;margin:0;"'));
 	
 				$out[] = tr(
 							tda(strong("Plugin Name"), $tdlatts).
@@ -226,10 +273,15 @@ function asv_pluginstaller($event, $step) {
 							tda(strong("Remove"), $tdatts)
 						).n;
 	
-				foreach(array_slice($rss->items,0) as $plug) {
+				foreach ($thefeed->get_items() as $item) {
 					$installed = 0;
 					$modified = 0;
-					extract($plug);
+					
+					$title = $item->get_title();
+					$version_array = $item->get_item_tags('', 'version');
+					$version = $version_array[0]['data'];
+					$link = $item->get_link();
+					
 	
 					foreach($myplugs as $myplug){
 						if (array_search($title,$myplug)) {
@@ -275,7 +327,7 @@ function asv_pluginstaller($event, $step) {
 				}
 		
 			} else {
-				echo graf(strong("Could not connect to wilshire|one."), ' style="text-align:center;"');
+				echo graf(strong("Could not connect to ".$a['name']), ' style="text-align:center;"');
 			}
 		}
 		
@@ -291,38 +343,6 @@ function asv_pluginstaller($event, $step) {
 // -------------------------------------------------------------
 
 function asv_fetchURL( $url ) {
-/*
-   $url_parsed = parse_url($url);
-   $host = $url_parsed["host"];
-   $port = 80;
-   if ((isset($url_parsed["port"])) && $url_parsed["port"]!=0)
-       $port = $url_parsed["port"];
-   $path = $url_parsed["path"];
-   if ((isset($url_parsed["query"])) && $url_parsed["query"] != "")
-       $path .= "?".$url_parsed["query"];
-
-   $out = "GET $path HTTP/1.0\r\nHost: $host\r\n\r\n";
-
-   $fp = fsockopen($host, $port, $errno, $errstr, 20);
-
-   fwrite($fp, $out);
-   $body = false;
-   $in = "";
-
-   stream_set_timeout($fp, 5);
-   $info = stream_get_meta_data($fp);
-   while (!feof($fp) && !$info['timed_out']) {
-       $s = fgets($fp, 1024);
-       if ( $body )
-           $in .= $s;
-       if ( $s == "\r\n" )
-           $body = true;
-   }
-
-   fclose($fp);
-
-   return $in;
-   */
    		// create a new curl resource
 		$ch = curl_init();
 
